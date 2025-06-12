@@ -1,13 +1,13 @@
-// code.ts
+// code.ts - ПОВНА ВЕРСІЯ З ПІДТРИМКОЮ СЕСІЙ
 
-// Interfaces for design system components
+// Existing interfaces (залишаються без змін)
 interface ComponentInfo {
   id: string;
   name: string;
   suggestedType: string;
   confidence: number;
   variants?: string[];
-  variantDetails?: { [key: string]: string[] };  // NEW: Maps variant property to possible values
+  variantDetails?: { [key: string]: string[] };
   textLayers?: string[];
   isFromLibrary: boolean;
   pageInfo?: {
@@ -17,16 +17,223 @@ interface ComponentInfo {
   };
 }
 
-// Enhanced session persistence implementation
 interface ScanSession {
   components: ComponentInfo[];
   scanTime: number;
-  version: string; // For future compatibility
-  fileKey?: string; // To detect if user switched files
+  version: string;
+  fileKey?: string;
 }
 
+// NEW: Session management interfaces
+interface SessionState {
+  fileId: string;
+  fileName: string;
+  lastModified: number;
+  designState: {
+    original: any;
+    current: any;
+    history: string[];
+    frameId: string;
+    frameName: string;
+    isIterating: boolean;
+  };
+  scanData?: ComponentInfo[];
+}
 
-// Function to scan the design system
+interface SessionStorage {
+  sessions: { [fileId: string]: SessionState };
+  lastActiveSession?: string;
+  version: string;
+}
+
+// NEW: Session Manager Class
+class SessionManager {
+  private static readonly STORAGE_KEY = 'aidesigner-sessions';
+  private static readonly SESSION_VERSION = '1.0';
+  private static readonly MAX_SESSION_AGE = 30 * 24 * 60 * 60 * 1000; // 30 днів
+
+  // Зберегти поточний стан сесії
+  static async saveSession(designState: any, scanData?: ComponentInfo[]): Promise<void> {
+    try {
+      const fileId = figma.root.id;
+      const fileName = figma.root.name;
+      
+      // Якщо немає активної ітерації, не зберігаємо
+      if (!designState.isIterating) return;
+      
+      console.log(`💾 Збереження сесії для файлу: ${fileName}`);
+      
+      const storage = await this.getSessionStorage();
+      
+      const session: SessionState = {
+        fileId,
+        fileName,
+        lastModified: Date.now(),
+        designState: {
+          original: designState.original,
+          current: designState.current,
+          history: [...designState.history],
+          frameId: designState.frameId,
+          frameName: designState.frameId ? await this.getFrameName(designState.frameId) : '',
+          isIterating: designState.isIterating
+        },
+        scanData
+      };
+      
+      storage.sessions[fileId] = session;
+      storage.lastActiveSession = fileId;
+      
+      await figma.clientStorage.setAsync(this.STORAGE_KEY, storage);
+      console.log(`✅ Сесія збережена`);
+      
+    } catch (error) {
+      console.error('❌ Помилка збереження сесії:', error);
+    }
+  }
+
+  // Завантажити сесію для поточного файлу
+  static async loadSession(): Promise<SessionState | null> {
+    try {
+      const fileId = figma.root.id;
+      const storage = await this.getSessionStorage();
+      
+      const session = storage.sessions[fileId];
+      if (!session) return null;
+      
+      // Перевірити, чи існує ще фрейм
+      if (session.designState.frameId) {
+        const frame = await figma.getNodeByIdAsync(session.designState.frameId);
+        if (!frame || frame.removed) {
+          console.log('⚠️ Фрейм з попередньої сесії не знайдено, очищуємо сесію');
+          await this.clearSession(fileId);
+          return null;
+        }
+      }
+      
+      console.log(`✅ Сесія знайдена для файлу: ${session.fileName}`);
+      return session;
+      
+    } catch (error) {
+      console.error('❌ Помилка завантаження сесії:', error);
+      return null;
+    }
+  }
+
+  // Отримати всі активні сесії
+  static async getAllSessions(): Promise<SessionState[]> {
+    try {
+      const storage = await this.getSessionStorage();
+      const now = Date.now();
+      
+      const activeSessions = Object.values(storage.sessions)
+        .filter(session => (now - session.lastModified) < this.MAX_SESSION_AGE)
+        .sort((a, b) => b.lastModified - a.lastModified);
+      
+      return activeSessions;
+    } catch (error) {
+      console.error('❌ Помилка завантаження всіх сесій:', error);
+      return [];
+    }
+  }
+
+  // Очистити сесію для файлу
+  static async clearSession(fileId?: string): Promise<void> {
+    try {
+      const targetFileId = fileId || figma.root.id;
+      const storage = await this.getSessionStorage();
+      
+      delete storage.sessions[targetFileId];
+      
+      if (storage.lastActiveSession === targetFileId) {
+        delete storage.lastActiveSession;
+      }
+      
+      await figma.clientStorage.setAsync(this.STORAGE_KEY, storage);
+      console.log(`🗑️ Сесія очищена для файлу: ${targetFileId}`);
+    } catch (error) {
+      console.error('❌ Помилка очищення сесії:', error);
+    }
+  }
+
+  // Очистити старі сесії
+  static async cleanupOldSessions(): Promise<void> {
+    try {
+      const storage = await this.getSessionStorage();
+      const now = Date.now();
+      let cleaned = 0;
+      
+      Object.entries(storage.sessions).forEach(([fileId, session]) => {
+        if ((now - session.lastModified) > this.MAX_SESSION_AGE) {
+          delete storage.sessions[fileId];
+          cleaned++;
+        }
+      });
+      
+      if (cleaned > 0) {
+        await figma.clientStorage.setAsync(this.STORAGE_KEY, storage);
+        console.log(`🧹 Очищено ${cleaned} старих сесій`);
+      }
+    } catch (error) {
+      console.error('❌ Помилка очищення старих сесій:', error);
+    }
+  }
+
+  // Отримати storage з ініціалізацією
+  private static async getSessionStorage(): Promise<SessionStorage> {
+    try {
+      const storage = await figma.clientStorage.getAsync(this.STORAGE_KEY);
+      
+      if (!storage || storage.version !== this.SESSION_VERSION) {
+        return {
+          sessions: {},
+          version: this.SESSION_VERSION
+        };
+      }
+      
+      return storage;
+    } catch (error) {
+      console.error('❌ Помилка отримання storage:', error);
+      return {
+        sessions: {},
+        version: this.SESSION_VERSION
+      };
+    }
+  }
+
+  // Отримати назву фрейму за ID
+  private static async getFrameName(frameId: string): Promise<string> {
+    try {
+      const frame = await figma.getNodeByIdAsync(frameId);
+      return frame?.name || 'Unknown Frame';
+    } catch {
+      return 'Unknown Frame';
+    }
+  }
+
+  // Відновити сесію з даних
+  static async restoreSessionData(sessionData: SessionState): Promise<boolean> {
+    try {
+      // Перевірити, чи існує фрейм
+      if (sessionData.designState.frameId) {
+        const frame = await figma.getNodeByIdAsync(sessionData.designState.frameId);
+        if (!frame || frame.removed) {
+          throw new Error('Фрейм не знайдено');
+        }
+        
+        // Перейти до фрейму
+        figma.currentPage.selection = [frame as SceneNode];
+        figma.viewport.scrollAndZoomIntoView([frame as SceneNode]);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Помилка відновлення сесії:', error);
+      return false;
+    }
+  }
+}
+
+// Existing functions (залишаються без змін, додаємо тільки session saving)
 async function scanDesignSystem(): Promise<ComponentInfo[]> {
   console.log("🔍 Starting scan...");
   const components: ComponentInfo[] = [];
@@ -89,7 +296,6 @@ function analyzeComponent(comp: ComponentNode | ComponentSetNode): ComponentInfo
         if (variantProps) {
             variants = Object.keys(variantProps);
             
-            // IMPROVED: Use Figma's native variant API directly
             Object.entries(variantProps).forEach(([propName, propInfo]) => {
                 if (propInfo.values && propInfo.values.length > 0) {
                     variantDetails[propName] = [...propInfo.values].sort();
@@ -201,13 +407,11 @@ function findTextLayers(comp: ComponentNode | ComponentSetNode): string[] {
         if (nodeToAnalyze && 'findAll' in nodeToAnalyze) {
             const allNodes = (nodeToAnalyze as ComponentNode).findAll((node) => node.type === 'TEXT');
             
-            // Safely process each node
             allNodes.forEach(node => {
                 if (node.type === 'TEXT' && node.name) {
                     const textNode = node as TextNode;
                     textLayers.push(textNode.name);
                     
-                    // Safe access to characters property
                     try {
                         const chars = textNode.characters || '[empty]';
                         console.log(`📝 Found text layer: "${textNode.name}" with content: "${chars}"`);
@@ -245,7 +449,6 @@ function generateLLMPrompt(components: ComponentInfo[]): string {
             Object.entries(bestComponent.variantDetails).forEach(([propName, values]) => {
                 prompt += `    - **${propName}**: [${values.map(v => `"${v}"`).join(', ')}]\n`;
                 
-                // Enhanced human-friendly explanations
                 const propLower = propName.toLowerCase();
                 if (propLower.includes('condition') || propLower.includes('layout')) {
                     prompt += `      💡 Layout control: ${values.includes('1-line') ? '"1-line" = single line, ' : ''}${values.includes('2-line') ? '"2-line" = detailed view' : ''}\n`;
@@ -396,23 +599,21 @@ async function getComponentIdByType(type: string): Promise<string | null> {
     return null;
 }
 
-// Enhanced saveLastScanResults function
 async function saveLastScanResults(components: ComponentInfo[]): Promise<void> {
   try {
     const scanSession: ScanSession = {
       components,
       scanTime: Date.now(),
       version: "1.0",
-      fileKey: figma.root.id // Save current file ID
+      fileKey: figma.root.id
     };
     
     await figma.clientStorage.setAsync('design-system-scan', scanSession);
-    await figma.clientStorage.setAsync('last-scan-results', components); // Keep for compatibility
+    await figma.clientStorage.setAsync('last-scan-results', components);
     
     console.log(`💾 Saved ${components.length} components with session data`);
   } catch (error) {
     console.error("❌ Error saving scan results:", error);
-    // Fallback to simple save
     try {
       await figma.clientStorage.setAsync('last-scan-results', components);
       console.log("💾 Fallback save successful");
@@ -427,7 +628,6 @@ async function navigateToComponent(componentId: string, pageName?: string): Prom
         const node = await figma.getNodeByIdAsync(componentId);
         if (!node) {
             figma.notify("Component not found", { error: true });
-            // ✅ FIX: The function is Promise<void>, so it should not return a value.
             return;
         }
         if (pageName) {
@@ -466,11 +666,9 @@ function separateVariantsFromProperties(properties: any, componentId: string): {
     const cleanProperties: any = {};
     const variants: any = {};
     
-    // Known text and layout properties (stay in cleanProperties)
     const knownTextProperties = ['text', 'supporting-text', 'trailing-text', 'headline', 'subtitle', 'value'];
     const knownLayoutProperties = ['horizontalSizing', 'verticalSizing', 'layoutAlign', 'layoutGrow'];
     
-    // Common variant property names (move to variants) - both cases
     const variantPropertyNames = [
         'condition', 'Condition',
         'leading', 'Leading', 
@@ -484,36 +682,29 @@ function separateVariantsFromProperties(properties: any, componentId: string): {
     ];
     
     Object.entries(properties).forEach(([key, value]) => {
-        // If variants object already exists, merge it
         if (key === 'variants') {
             Object.assign(variants, value);
             console.log(`🔧 Found existing variants object:`, value);
-            // ✅ FIX: `forEach` callbacks must return `void`. We simply return to exit this iteration.
             return;
         }
         
-        // Text properties always go to cleanProperties
         if (knownTextProperties.some(prop => key.toLowerCase().includes(prop.toLowerCase()))) {
             cleanProperties[key] = value;
             return;
         }
         
-        // Layout properties always go to cleanProperties
         if (knownLayoutProperties.some(prop => key.toLowerCase().includes(prop.toLowerCase()))) {
             cleanProperties[key] = value;
             return;
         }
         
-        // Check if this is a known variant property
         if (variantPropertyNames.includes(key)) {
-            // Convert to proper case for Figma variants (usually capitalized)
             const properKey = key.charAt(0).toUpperCase() + key.slice(1);
             variants[properKey] = value;
             console.log(`🔧 Moved "${key}" -> "${properKey}" from properties to variants`);
             return;
         }
         
-        // Everything else goes to cleanProperties as fallback
         cleanProperties[key] = value;
     });
     
@@ -529,18 +720,15 @@ async function applyTextProperties(instance: InstanceNode, properties: any): Pro
     
     console.log("🔍 Applying text properties:", properties);
     
-    // Fixed: Properly type and check text nodes
     const allTextNodes = instance.findAll(n => n.type === 'TEXT') as TextNode[];
     console.log("🔍 Available text nodes in component:", 
         allTextNodes.map(textNode => ({ 
             name: textNode.name, 
-            chars: textNode.characters || '[empty]'  // Now safe since we know it's TextNode
+            chars: textNode.characters || '[empty]'
         }))
     );
     
-    // Enhanced text mappings for different component types
     const textMappings: {[key: string]: string[]} = {
-        // Common property names to text layer mappings
         'headline': ['headline', 'title', 'text', 'label', 'primary'],
         'text': ['headline', 'title', 'text', 'label', 'primary'],
         'supporting-text': ['supporting', 'subtitle', 'description', 'secondary', 'body'],
@@ -551,28 +739,22 @@ async function applyTextProperties(instance: InstanceNode, properties: any): Pro
         'value': ['value', 'trailing', 'status'],
         'title': ['title', 'headline', 'text'],
         'subtitle': ['subtitle', 'supporting', 'description'],
-        
-        // Handle variant property names that might be text content
         'Headline': ['headline', 'title', 'text', 'label'],
         'Supporting': ['supporting', 'subtitle', 'description'],
         'Trailing': ['trailing', 'value', 'action']
     };
     
     for (const [propKey, propValue] of Object.entries(properties)) {
-        // Skip non-text properties
         if (!propValue || typeof propValue !== 'string' || !propValue.trim()) continue;
         if (propKey === 'horizontalSizing' || propKey === 'variants') continue;
         
         console.log(`🔧 Trying to set ${propKey} = "${propValue}"`);
         
-        // Get possible text layer names for this property
         let possibleNames = textMappings[propKey] || [propKey.toLowerCase()];
         
         let textNode: TextNode | null = null;
         
-        // Try each possible name with fuzzy matching
         for (const targetName of possibleNames) {
-            // Fixed: Use the properly typed array
             textNode = allTextNodes.find(
                 n => n.name.toLowerCase().includes(targetName.toLowerCase())
             ) || null;
@@ -583,28 +765,23 @@ async function applyTextProperties(instance: InstanceNode, properties: any): Pro
             }
         }
         
-        // Fallback strategies
         if (!textNode) {
             if (propKey.toLowerCase().includes('headline') || propKey.toLowerCase().includes('text')) {
-                // Use the first text node for main content
                 textNode = allTextNodes[0] || null;
                 console.log(`🔄 Using first text node as fallback for "${propKey}"`);
             } else if (propKey.toLowerCase().includes('trailing')) {
-                // Use the last text node for trailing content
                 textNode = allTextNodes[allTextNodes.length - 1] || null;
                 console.log(`🔄 Using last text node as fallback for trailing "${propKey}"`);
             } else if (propKey.toLowerCase().includes('supporting')) {
-                // Use the second text node for supporting content
                 textNode = allTextNodes[1] || allTextNodes[0] || null;
                 console.log(`🔄 Using second text node as fallback for supporting "${propKey}"`);
             }
         }
         
-        // Apply the text if we found a node
         if (textNode && typeof textNode.fontName !== 'symbol') {
             try {
                 await figma.loadFontAsync(textNode.fontName as FontName);
-                textNode.characters = propValue;  // Now safe since textNode is definitely TextNode
+                textNode.characters = propValue;
                 console.log(`✅ Successfully set "${textNode.name}" to "${propValue}"`);
             } catch (fontError) {
                 console.error(`❌ Font loading failed for "${textNode.name}":`, fontError);
@@ -614,7 +791,6 @@ async function applyTextProperties(instance: InstanceNode, properties: any): Pro
         }
     }
 }
-
 
 async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageNode): Promise<FrameNode> {
     let currentFrame: FrameNode;
@@ -627,7 +803,6 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
         currentFrame = parentNode;
     } else {
         figma.notify("Cannot add items without a parent frame.", { error: true });
-        // This case should not be hit if logic is correct, but return a dummy frame to satisfy type
         return figma.createFrame();
     }
     
@@ -657,7 +832,6 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
     if (!items || !Array.isArray(items)) return currentFrame;
     
     for (const item of items) {
-        // Support for nested layoutContainers
         if (item.type === 'layoutContainer') {
             const nestedFrame = figma.createFrame();
             currentFrame.appendChild(nestedFrame);
@@ -666,7 +840,6 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
                 nestedFrame.layoutAlign = 'STRETCH';
             }
             
-            // Recursive call for nested items
             await generateUIFromData({ layoutContainer: item, items: item.items }, nestedFrame);
             
         } else if (item.type === 'frame' && item.layoutContainer) {
@@ -680,7 +853,6 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
             const componentNode = await figma.getNodeByIdAsync(item.componentNodeId);
             if (!componentNode) {
                 console.warn(`⚠️ Component with ID ${item.componentNodeId} not found. Skipping.`);
-                // ✅ FIX: `continue` the loop instead of returning, which would stop all UI generation.
                 continue;
             }
             
@@ -690,7 +862,6 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
                 
             if (!masterComponent || masterComponent.type !== 'COMPONENT') {
                 console.warn(`⚠️ Could not find a valid master component for ID ${item.componentNodeId}. Skipping.`);
-                 // ✅ FIX: `continue` the loop.
                 continue;
             }
             
@@ -700,28 +871,22 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
             console.log(`🔧 Creating instance of component: ${masterComponent.name}`);
             console.log(`🔧 Raw properties:`, item.properties);
 
-            // NEW: Separate variants from regular properties
             const {cleanProperties, variants} = separateVariantsFromProperties(item.properties, item.componentNodeId);
             const sanitizedProps = sanitizeProperties(cleanProperties);
 
             console.log(`🔧 Clean properties:`, sanitizedProps);
             console.log(`🔧 Extracted variants:`, variants);
 
-            // IMPROVED: Apply variants with better error handling and validation
             if (Object.keys(variants).length > 0) {
                 try {
-                    // We already fetched this, but re-asserting type for safety
                     if (componentNode && componentNode.type === 'COMPONENT_SET') {
                         const availableVariants = componentNode.variantGroupProperties;
                         console.log(`🔍 Available variants for ${componentNode.name}:`, Object.keys(availableVariants || {}));
                         console.log(`🔍 Requested variants:`, variants);
                         
-                        // ✅ FIX: This logic block now correctly handles the case where variants are not available
-                        // without causing a type error by returning `undefined` from the main function.
                         if (!availableVariants) {
                             console.warn('⚠️ No variant properties found on component, skipping variant application.');
                         } else {
-                            // Validate and build variant set
                             const validVariants: { [key: string]: string } = {};
                             let hasValidVariants = false;
                             
@@ -741,7 +906,6 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
                                 }
                             });
                             
-                            // Apply valid variants only
                             if (hasValidVariants) {
                                 console.log(`🔧 Applying variants:`, validVariants);
                                 instance.setProperties(validVariants);
@@ -785,18 +949,15 @@ async function generateUIFromDataDynamic(layoutData: any): Promise<FrameNode | n
         return null;
     }
 
-    // Helper function to detect placeholder IDs
     const isPlaceholderID = (id: string): boolean => {
         if (!id) return true;
-        // Detect common placeholder patterns
         return id.includes('_id') || 
                id.includes('placeholder') || 
-               !id.match(/^[0-9]+:[0-9]+$/); // Real Figma IDs look like "123:456"
+               !id.match(/^[0-9]+:[0-9]+$/);
     };
 
     const resolveComponentIds = async (items: any[]) => {
         for (const item of items) {
-            // Handle layoutContainer
             if (item.type === 'layoutContainer') {
                 if (item.items && Array.isArray(item.items)) {
                     await resolveComponentIds(item.items);
@@ -804,13 +965,10 @@ async function generateUIFromDataDynamic(layoutData: any): Promise<FrameNode | n
                 continue;
             }
             
-            // Handle frames with nested items
             if (item.type === 'frame' && item.items) {
                 await resolveComponentIds(item.items);
             } 
-            // Handle regular components
             else if (item.type !== 'frame') {
-                // Check if componentNodeId is missing or is a placeholder
                 if (!item.componentNodeId || isPlaceholderID(item.componentNodeId)) {
                     console.log(`🔧 Resolving component ID for type: ${item.type}`);
                     const resolvedId = await getComponentIdByType(item.type);
@@ -837,11 +995,27 @@ async function generateUIFromDataDynamic(layoutData: any): Promise<FrameNode | n
     }
 }
 
+// MODIFIED: initializeSession з підтримкою сесій
 async function initializeSession() {
-  console.log("🔄 Initializing session...");
+  console.log("🔄 Ініціалізація сесії...");
   
   try {
-    // Load saved API key
+    // Очистити старі сесії
+    await SessionManager.cleanupOldSessions();
+    
+    // Спробувати завантажити сесію для поточного файлу
+    const savedSession = await SessionManager.loadSession();
+    
+    if (savedSession && savedSession.designState.isIterating) {
+      console.log("✅ Знайдена активна сесія для відновлення");
+      figma.ui.postMessage({ 
+        type: 'session-found', 
+        session: savedSession,
+        currentFileId: figma.root.id
+      });
+    }
+    
+    // Завантажити API ключ
     const savedApiKey = await figma.clientStorage.getAsync('geminiApiKey');
     if (savedApiKey) {
       console.log("✅ API key found in storage");
@@ -851,12 +1025,11 @@ async function initializeSession() {
       });
     }
     
-    // Load saved scan results
+    // Завантажити збережені результати сканування
     const savedScan: ScanSession | undefined = await figma.clientStorage.getAsync('design-system-scan');
-    const currentFileKey = figma.root.id; // Unique file identifier
+    const currentFileKey = figma.root.id;
     
     if (savedScan && savedScan.components && savedScan.components.length > 0) {
-      // Check if scan is from the same file
       if (savedScan.fileKey === currentFileKey) {
         console.log(`✅ Design system loaded: ${savedScan.components.length} components`);
         figma.ui.postMessage({ 
@@ -866,9 +1039,7 @@ async function initializeSession() {
         });
       } else {
         console.log("ℹ️ Scan from different file, clearing cache");
-        // Clear outdated scan from different file
         await figma.clientStorage.setAsync('design-system-scan', null);
-        // FIX: Also clear the legacy 'last-scan-results' key to prevent using stale data.
         await figma.clientStorage.setAsync('last-scan-results', null);
       }
     } else {
@@ -883,11 +1054,9 @@ async function main() {
   console.log("🚀 AIDesigner plugin started");
   figma.showUI(__html__, { width: 400, height: 720 });
   
-  // Initialize session BEFORE setting up message handlers
   await initializeSession();
   
   figma.ui.onmessage = async (msg: any) => {
-    // Use msg.type for logging so we don't see the whole payload
     console.log("📨 Message from UI:", msg.type); 
 
     switch (msg.type) {
@@ -896,7 +1065,11 @@ async function main() {
                 const layoutData = JSON.parse(msg.payload);
                 const newFrame = await generateUIFromDataDynamic(layoutData);
                 if (newFrame) {
-                    figma.ui.postMessage({ type: 'ui-generated-success', frameId: newFrame.id, generatedJSON: layoutData });
+                    figma.ui.postMessage({ 
+                        type: 'ui-generated-success', 
+                        frameId: newFrame.id, 
+                        generatedJSON: layoutData 
+                    });
                 }
             } catch (e: any) {
                 const errorMessage = e instanceof Error ? e.message : String(e);
@@ -904,18 +1077,21 @@ async function main() {
                 figma.ui.postMessage({ type: 'ui-generation-error', error: errorMessage });
             }
             break;
+
         case 'modify-existing-ui':
             try {
                 const { modifiedJSON, frameId } = msg.payload;
                 const existingFrame = await figma.getNodeByIdAsync(frameId) as FrameNode;
                 if (existingFrame && existingFrame.type === 'FRAME') {
-                    // Clear existing content before regenerating
                     for (let i = existingFrame.children.length - 1; i >= 0; i--) {
                         existingFrame.children[i].remove();
                     }
-                    // Regenerate UI with modified JSON inside the same frame
                     await generateUIFromData(modifiedJSON, existingFrame);
-                    figma.ui.postMessage({ type: 'ui-modified-success', frameId: existingFrame.id, modifiedJSON: modifiedJSON });
+                    figma.ui.postMessage({ 
+                        type: 'ui-modified-success', 
+                        frameId: existingFrame.id, 
+                        modifiedJSON: modifiedJSON 
+                    });
                     figma.notify("UI updated successfully!", { timeout: 2000 });
                 } else {
                     throw new Error("Target frame for modification not found.");
@@ -926,6 +1102,70 @@ async function main() {
                 figma.ui.postMessage({ type: 'ui-generation-error', error: errorMessage });
             }
             break;
+
+        // NEW: Session management handlers
+        case 'restore-session':
+            try {
+                const sessionData = msg.payload;
+                const success = await SessionManager.restoreSessionData(sessionData);
+                if (success) {
+                    figma.ui.postMessage({ 
+                        type: 'session-restored', 
+                        designState: sessionData.designState,
+                        scanData: sessionData.scanData 
+                    });
+                    figma.notify("Сесію відновлено!", { timeout: 2000 });
+                } else {
+                    throw new Error("Failed to restore session");
+                }
+            } catch (e: any) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                figma.notify("Помилка відновлення сесії: " + errorMessage, { error: true });
+            }
+            break;
+
+        case 'clear-current-session':
+            try {
+                await SessionManager.clearSession();
+                figma.ui.postMessage({ type: 'session-cleared' });
+                figma.notify("Сесію очищено", { timeout: 1500 });
+            } catch (error) {
+                console.error("❌ Error clearing session:", error);
+            }
+            break;
+
+        case 'get-all-sessions':
+            try {
+                const allSessions = await SessionManager.getAllSessions();
+                figma.ui.postMessage({ 
+                    type: 'all-sessions-loaded', 
+                    sessions: allSessions,
+                    currentFileId: figma.root.id 
+                });
+            } catch (error) {
+                console.error("❌ Error getting all sessions:", error);
+                figma.ui.postMessage({ type: 'all-sessions-loaded', sessions: [] });
+            }
+            break;
+
+        case 'delete-session':
+            try {
+                await SessionManager.clearSession(msg.payload);
+                figma.ui.postMessage({ type: 'session-deleted', fileId: msg.payload });
+            } catch (error) {
+                console.error("❌ Error deleting session:", error);
+            }
+            break;
+
+        case 'save-current-session':
+            try {
+                // This will be called from UI when designState changes
+                await SessionManager.saveSession(msg.payload.designState, msg.payload.scanData);
+            } catch (error) {
+                console.error("❌ Error saving session:", error);
+            }
+            break;
+
         case 'scan-design-system':
             try {
                 const components = await scanDesignSystem();
@@ -935,6 +1175,7 @@ async function main() {
                 figma.notify("Scanning error", { error: true });
             }
             break;
+
         case 'generate-llm-prompt':
             const scanResultsForPrompt: ComponentInfo[] | undefined = await figma.clientStorage.getAsync('last-scan-results');
             if (scanResultsForPrompt?.length) {
@@ -944,6 +1185,7 @@ async function main() {
                 figma.notify("Scan components first", { error: true });
             }
             break;
+
         case 'update-component-type':
             const { componentId, newType } = msg.payload;
             try {
@@ -964,11 +1206,11 @@ async function main() {
                 figma.notify("Error updating type", { error: true });
             }
             break;
+
         case 'navigate-to-component':
             await navigateToComponent(msg.componentId, msg.pageName);
             break;
         
-        // --- START: API and Session handlers ---
         case 'save-api-key':
             try {
                 await figma.clientStorage.setAsync('geminiApiKey', msg.payload);
@@ -1016,20 +1258,19 @@ async function main() {
                 await figma.clientStorage.setAsync('design-system-scan', null);
                 await figma.clientStorage.setAsync('last-scan-results', null);
                 await figma.clientStorage.setAsync('geminiApiKey', null);
+                await figma.clientStorage.setAsync(SessionManager['STORAGE_KEY'], null);
                 figma.notify("Storage cleared");
             } catch (error) {
                 console.error("Error clearing storage:", error);
             }
             break;
-        // --- END: API and Session handlers ---
 
         case 'cancel':
             figma.closePlugin();
             break;
             
         default:
-            // Ignore unknown messages to avoid cluttering the console
-            // console.warn("❓ Unknown message type from UI:", msg.type);
+            // Ignore unknown messages
     }
   };
   console.log("✅ Plugin fully initialized");
