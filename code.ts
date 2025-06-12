@@ -848,6 +848,7 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
             await generateUIFromData(item, nestedFrame);
             
         } else {
+        
             if (!item.componentNodeId) continue;
             
             const componentNode = await figma.getNodeByIdAsync(item.componentNodeId);

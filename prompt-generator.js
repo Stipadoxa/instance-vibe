@@ -360,6 +360,7 @@ IMPORTANT: You cannot use placeholder IDs. Each component must have a real compo
     }
   ]
 }
+  
 \`\`\`
 
 ## 🎯 Property Name Guidelines:
@@ -532,6 +533,46 @@ IMPORTANT: You cannot use placeholder IDs. Each component must have a real compo
   },
   "items": [
     // ... components go here
+  ]
+}
+  // Add this to your existing JSON examples:
+
+// NATIVE TEXT ELEMENTS (no design system component needed):
+{
+  "type": "text",
+  "content": "Welcome Back!",
+  "alignment": "center",        // Options: "left", "center", "right"
+  "fontSize": 24,              // Optional: specific font size
+  "fontWeight": "bold",        // Optional: "normal", "bold"
+  "horizontalSizing": "HUG",   // Options: "FILL", "HUG", or specific width
+  "verticalSizing": "HUG"      // Usually "HUG" for text
+}
+
+// Example in a container:
+{
+  "layoutContainer": {
+    "name": "Welcome Screen",
+    "layoutMode": "VERTICAL",
+    "itemSpacing": 16,
+    "paddingHorizontal": 24
+  },
+  "items": [
+    {
+      "type": "text",
+      "content": "Welcome Back!",
+      "alignment": "center",
+      "fontSize": 32,
+      "fontWeight": "bold",
+      "horizontalSizing": "FILL"
+    },
+    {
+      "type": "text", 
+      "content": "Sign in to continue your journey with us.",
+      "alignment": "left",
+      "fontSize": 16,
+      "fontWeight": "normal",
+      "horizontalSizing": "FILL"
+    }
   ]
 }
 \`\`\`
