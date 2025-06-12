@@ -516,7 +516,7 @@ IMPORTANT: You cannot use placeholder IDs. Each component must have a real compo
      * JSON structure guide with UX considerations
      */
     getJSONStructureGuide() {
-        return `## JSON Structure & Rules:
+    return `## JSON Structure & Rules:
 
 ### Basic structure:
 \`\`\`json
@@ -524,7 +524,7 @@ IMPORTANT: You cannot use placeholder IDs. Each component must have a real compo
   "layoutContainer": {
     "name": "Container Name",
     "layoutMode": "VERTICAL",
-    "width": 360,           // Always specify width for mobile
+    "width": 360,
     "paddingTop": 24,
     "paddingBottom": 24,
     "paddingLeft": 16,
@@ -532,182 +532,202 @@ IMPORTANT: You cannot use placeholder IDs. Each component must have a real compo
     "itemSpacing": 16
   },
   "items": [
-    // ... components go here
+    // ... components and native elements go here
   ]
 }
-  // Add this to your existing JSON examples:
+\`\`\`
 
-// NATIVE TEXT ELEMENTS (no design system component needed):
+### 🎯 NATIVE vs COMPONENT ELEMENTS:
+
+**Use NATIVE elements for:**
+- Simple text that doesn't need design system styling
+- Basic shapes, dividers, or decorative elements
+- Custom layouts that don't exist in the design system
+- When you want full control over styling
+
+**Use DESIGN SYSTEM COMPONENTS for:**
+- Interactive elements (buttons, inputs, cards)
+- Text that should match your design system typography
+- Complex UI patterns that exist in the design system
+- When consistency with the design system is important
+
+### 📝 NATIVE ELEMENTS:
+
+#### Native Text:
+\`\`\`json
 {
-  "type": "text",
-  "content": "Welcome Back!",
-  "alignment": "center",        // Options: "left", "center", "right"
-  "fontSize": 24,              // Optional: specific font size
-  "fontWeight": "bold",        // Optional: "normal", "bold"
-  "horizontalSizing": "HUG",   // Options: "FILL", "HUG", or specific width
-  "verticalSizing": "HUG"      // Usually "HUG" for text
+  "type": "native-text",
+  "properties": {
+    "content": "Welcome to our app",
+    "fontSize": 24,
+    "fontWeight": "bold",
+    "alignment": "center",
+    "horizontalSizing": "FILL"
+  }
 }
+\`\`\`
 
-// Example in a container:
+#### Native Rectangle (for dividers, backgrounds):
+\`\`\`json
+{
+  "type": "native-rectangle",
+  "properties": {
+    "width": 200,
+    "height": 2,
+    "fill": { "r": 0.9, "g": 0.9, "b": 0.9 },
+    "cornerRadius": 1,
+    "horizontalSizing": "FILL"
+  }
+}
+\`\`\`
+
+#### Native Circle (for dots, indicators):
+\`\`\`json
+{
+  "type": "native-circle",
+  "properties": {
+    "width": 8,
+    "height": 8,
+    "fill": { "r": 0.2, "g": 0.6, "b": 1.0 }
+  }
+}
+\`\`\`
+
+### 🧩 COMPONENT ELEMENTS:
+
+#### Design System Text Component:
+\`\`\`json
+{
+  "type": "headline",
+  "componentNodeId": "10:123",
+  "properties": {
+    "text": "Welcome to our app",
+    "horizontalSizing": "FILL",
+    "variants": {
+      "Size": "Large",
+      "Weight": "Bold"
+    }
+  }
+}
+\`\`\`
+
+#### Design System Button:
+\`\`\`json
+{
+  "type": "button",
+  "componentNodeId": "10:456",
+  "properties": {
+    "text": "Get Started",
+    "horizontalSizing": "FILL",
+    "variants": {
+      "Type": "Primary",
+      "Size": "Large"
+    }
+  }
+}
+\`\`\`
+
+### 🎨 WHEN TO USE WHICH:
+
+**Use native-text when:**
+- Creating simple labels, descriptions, or body text
+- You need custom font sizes not available in your design system
+- Creating one-off text elements that don't need to be consistent
+
+**Use text components when:**
+- Creating headlines that should match your design system
+- Text that might have variants (sizes, weights, colors)
+- Text that should be consistent across your app
+
+**Use native shapes when:**
+- Creating simple dividers between sections
+- Adding decorative elements or icons
+- Creating custom indicators or status dots
+
+**Use design system components when:**
+- Creating interactive elements
+- Building standard UI patterns
+- Ensuring consistency with your brand
+
+### 🔧 NATIVE ELEMENT PROPERTIES:
+
+**Native Text Properties:**
+- \`content\`: The actual text content
+- \`fontSize\`: Size in pixels (16, 18, 24, etc.)
+- \`fontWeight\`: "normal", "bold"
+- \`alignment\`: "left", "center", "right"
+- \`horizontalSizing\`: "AUTO", "FILL"
+
+**Native Rectangle Properties:**
+- \`width\`, \`height\`: Dimensions in pixels
+- \`fill\`: Color object { r: 0-1, g: 0-1, b: 0-1 }
+- \`cornerRadius\`: Border radius in pixels
+- \`horizontalSizing\`: "AUTO", "FILL"
+
+**Native Circle Properties:**
+- \`width\`, \`height\`: Dimensions (same for perfect circle)
+- \`fill\`: Color object { r: 0-1, g: 0-1, b: 0-1 }
+
+### ✅ COMPLETE EXAMPLE WITH BOTH:
+
+\`\`\`json
 {
   "layoutContainer": {
     "name": "Welcome Screen",
     "layoutMode": "VERTICAL",
-    "itemSpacing": 16,
-    "paddingHorizontal": 24
+    "width": 360,
+    "paddingTop": 32,
+    "paddingBottom": 32,
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "itemSpacing": 16
   },
   "items": [
     {
-      "type": "text",
-      "content": "Welcome Back!",
-      "alignment": "center",
-      "fontSize": 32,
-      "fontWeight": "bold",
-      "horizontalSizing": "FILL"
+      "type": "native-text",
+      "properties": {
+        "content": "Welcome!",
+        "fontSize": 32,
+        "fontWeight": "bold",
+        "alignment": "center"
+      }
     },
     {
-      "type": "text", 
-      "content": "Sign in to continue your journey with us.",
-      "alignment": "left",
-      "fontSize": 16,
-      "fontWeight": "normal",
-      "horizontalSizing": "FILL"
-    }
-  ]
-}
-\`\`\`
-
-### UX Considerations for JSON:
-- **layoutMode**: VERTICAL is easier to scan for most content.
-- **itemSpacing**: Use 16px for related items, 24px+ for separating sections.
-- **horizontalSizing**: "FILL" is crucial for primary actions (buttons) and inputs.
-- **items order**: This defines the visual and accessibility order. Top-to-bottom matters.
-
-### Component Selection Rules:
-- **ALWAYS use the exact componentNodeId from the design system list above**
-- Never use placeholder IDs like "button_id", "input_id", etc.
-- File upload areas: Use layoutContainer with icon + text, NOT image component
-- Secondary buttons: Use button with variants like "Medium" emphasis
-- CAPTCHA/forms: Use input or form components, NOT list-item
-- All form inputs: Must have horizontalSizing: "FILL"
-- Icon actions: Use icon-button if available, or button with icon property
-
-### Text Property Rules:
-- **Primary text**: Use \`"text"\` or \`"headline"\` for main content
-- **Secondary text**: Use \`"supporting-text"\` for descriptions
-- **Action/Value text**: Use \`"trailing-text"\` for status, values, or action hints
-- **Property names should be lowercase with hyphens**: \`"supporting-text"\` not \`"Supporting text"\`
-- **Avoid variant names as text content**: Don't use \`"Headline": "text content"\`
-
-### Enhanced List Item Example:
-\`\`\`json
-{
-  "type": "list-item",
-  "componentNodeId": "10:123",
-  "properties": {
-    "text": "Change language",           // Main headline
-    "supporting-text": "Select your preferred language",  // Optional description
-    "trailing-text": "English",   // Current value or action hint
-    "horizontalSizing": "FILL",
-    "variants": {
-      "Condition": "1-line",       // Component variants in separate object
-      "Leading": "Icon",
-      "Trailing": "Icon"
-    }
-  }
-}
-\`\`\`
-
-### Variant Usage Rules:
-- **Variants must be in a separate "variants" object inside properties**
-- **NEVER mix variants with regular properties at the same level**
-- Variant properties are case-sensitive: "Condition" not "condition"
-- Variant values are case-sensitive: "1-line" not "1-Line"
-
-### ✅ CORRECT Variant Structure:
-\`\`\`json
-{
-  "type": "list-item",
-  "componentNodeId": "10:123",
-  "properties": {
-    "text": "Personal details",
-    "horizontalSizing": "FILL",
-    "variants": {
-      "Condition": "1-line",
-      "Leading": "Icon", 
-      "Trailing": "Icon"
-    }
-  }
-}
-\`\`\`
-
-### ❌ WRONG - Never do this:
-\`\`\`json
-{
-  "properties": {
-    "text": "Personal details",
-    "Condition": "1-line",    // WRONG: variants mixed with properties
-    "Leading": "Icon"         // WRONG: should be in variants object
-  }
-}
-\`\`\`
-
-### Example with variants:
-\`\`\`json
-{
-  "type": "button",
-  "componentNodeId": "10:123",
-  "properties": {
-    "text": "Submit",
-    "horizontalSizing": "FILL",
-    "variants": {
-      "Type": "Primary",    // Must match exactly from available options
-      "Size": "Large",      // Case-sensitive!
-      "State": "enabled"    // Default states are usually "enabled" or "default"
-    }
-  }
-}
-\`\`\`
-
-### Button Hierarchy:
-- Primary actions (Submit, Send): "High" emphasis, horizontalSizing: "FILL"
-- Secondary actions (Add more): "Medium" emphasis, horizontalSizing: "AUTO"
-- Icon actions: icon-button or button with icon
-
-### CRITICAL OBJECT SEPARATION RULES:
-Each item in the "items" array must be a complete, separate object.
-
-✅ CORRECT - Separate objects:
-\`\`\`json
-{
-  "items": [
-    { 
-      "type": "layoutContainer",
-      "name": "Section1",
-      "items": []
+      "type": "native-text",
+      "properties": {
+        "content": "Get started with our app and discover amazing features.",
+        "fontSize": 16,
+        "alignment": "center",
+        "horizontalSizing": "FILL"
+      }
     },
-    { 
+    {
+      "type": "native-rectangle",
+      "properties": {
+        "width": 50,
+        "height": 2,
+        "fill": { "r": 0.8, "g": 0.8, "b": 0.8 },
+        "cornerRadius": 1
+      }
+    },
+    {
       "type": "button",
-      "componentNodeId": "10:3907",  // Real ID from design system
-      "properties": {}
+      "componentNodeId": "ACTUAL_BUTTON_ID",
+      "properties": {
+        "text": "Get Started",
+        "horizontalSizing": "FILL",
+        "variants": {
+          "Type": "Primary",
+          "Size": "Large"
+        }
+      }
     }
   ]
 }
 \`\`\`
 
-❌ WRONG - Placeholder IDs:
-\`\`\`json
-{
-  "items": [
-    { 
-      "type": "button",
-      "componentNodeId": "button_id",  // NEVER use placeholder IDs!
-      "properties": {}
-    }
-  ]
+This approach gives you maximum flexibility while maintaining design system consistency where it matters most.`;
 }
-\`\`\``;
-    }
 
     /**
      * Real-world examples that demonstrate good UX

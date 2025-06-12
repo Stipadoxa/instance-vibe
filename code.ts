@@ -847,8 +847,22 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
             currentFrame.appendChild(nestedFrame);
             await generateUIFromData(item, nestedFrame);
             
-        } else {
-        
+        } 
+        // NATIVE ELEMENTS - Handle these BEFORE component resolution
+        else if (item.type === 'native-text' || item.type === 'text') {
+            await createTextNode(item, currentFrame);
+            continue;
+        }
+        else if (item.type === 'native-rectangle') {
+            await createRectangleNode(item, currentFrame);
+            continue;
+        }
+        else if (item.type === 'native-circle') {
+            await createEllipseNode(item, currentFrame);
+            continue;
+        }
+        // COMPONENT ELEMENTS - All other types go through component resolution
+        else {
             if (!item.componentNodeId) continue;
             
             const componentNode = await figma.getNodeByIdAsync(item.componentNodeId);
@@ -871,13 +885,14 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
             
             console.log(`🔧 Creating instance of component: ${masterComponent.name}`);
             console.log(`🔧 Raw properties:`, item.properties);
-
+    
             const {cleanProperties, variants} = separateVariantsFromProperties(item.properties, item.componentNodeId);
             const sanitizedProps = sanitizeProperties(cleanProperties);
-
+    
             console.log(`🔧 Clean properties:`, sanitizedProps);
             console.log(`🔧 Extracted variants:`, variants);
-
+    
+            // Apply variants
             if (Object.keys(variants).length > 0) {
                 try {
                     if (componentNode && componentNode.type === 'COMPONENT_SET') {
@@ -924,6 +939,7 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
                 }
             }
             
+            // Apply layout sizing
             if (sanitizedProps?.horizontalSizing === 'FILL') {
                 if (currentFrame.layoutMode === 'VERTICAL') {
                     instance.layoutAlign = 'STRETCH';
@@ -932,6 +948,7 @@ async function generateUIFromData(layoutData: any, parentNode: FrameNode | PageN
                 }
             }
             
+            // Apply text properties to component
             await applyTextProperties(instance, sanitizedProps);
         }
     }
@@ -957,12 +974,21 @@ async function generateUIFromDataDynamic(layoutData: any): Promise<FrameNode | n
                !id.match(/^[0-9]+:[0-9]+$/);
     };
 
-    const resolveComponentIds = async (items: any[]) => {
+    async function resolveComponentIds(items: any[]): Promise<void> {
         for (const item of items) {
             if (item.type === 'layoutContainer') {
                 if (item.items && Array.isArray(item.items)) {
                     await resolveComponentIds(item.items);
                 }
+                continue;
+            }
+            
+            // SKIP native elements - they don't need component IDs
+            if (item.type === 'native-text' || 
+                item.type === 'text' || 
+                item.type === 'native-rectangle' || 
+                item.type === 'native-circle') {
+                console.log(`ℹ️ Skipping native element: ${item.type}`);
                 continue;
             }
             
@@ -983,7 +1009,7 @@ async function generateUIFromDataDynamic(layoutData: any): Promise<FrameNode | n
                 }
             }
         }
-    };
+    }
 
     try {
         await resolveComponentIds(layoutData.items);
@@ -1281,3 +1307,101 @@ main().catch(err => {
     console.error("❌ Unhandled error:", err);
     figma.closePlugin("A critical error occurred.");
 });
+
+// Text creation helper function
+async function createTextNode(textData: any, container: FrameNode): Promise<void> {
+    console.log('Creating text node:', textData.content);
+    
+    // Create a new text node
+    const textNode = figma.createText();
+    
+    // Load default font (required before setting text)
+    await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+    
+    // Set the text content
+    textNode.characters = textData.content || "Text";
+    
+    // Set font size if specified
+    if (textData.fontSize) {
+        textNode.fontSize = textData.fontSize;
+    }
+    
+    // Set font weight if specified
+    if (textData.fontWeight === 'bold') {
+        await figma.loadFontAsync({ family: "Inter", style: "Bold" });
+        textNode.fontName = { family: "Inter", style: "Bold" };
+    }
+    
+    // Set text alignment
+    if (textData.alignment === 'center') {
+        textNode.textAlignHorizontal = 'CENTER';
+    } else if (textData.alignment === 'right') {
+        textNode.textAlignHorizontal = 'RIGHT';
+    } else {
+        textNode.textAlignHorizontal = 'LEFT';
+    }
+    
+    // Set sizing behavior
+    if (textData.horizontalSizing === 'FILL') {
+        textNode.layoutAlign = 'STRETCH';
+        textNode.textAutoResize = 'HEIGHT';
+    } else {
+        textNode.textAutoResize = 'WIDTH_AND_HEIGHT';
+    }
+    
+    // Add to container
+    container.appendChild(textNode);
+    console.log('Text node created successfully');
+}
+
+async function createRectangleNode(rectData: any, container: FrameNode): Promise<void> {
+    console.log('Creating native rectangle:', rectData);
+    
+    const rect = figma.createRectangle();
+    
+    // Set dimensions
+    if (rectData.width && rectData.height) {
+        rect.resize(rectData.width, rectData.height);
+    } else {
+        rect.resize(100, 100); // Default size
+    }
+    
+    // Set fill color
+    if (rectData.fill) {
+        rect.fills = [{ type: 'SOLID', color: rectData.fill }];
+    }
+    
+    // Set corner radius
+    if (rectData.cornerRadius) {
+        rect.cornerRadius = rectData.cornerRadius;
+    }
+    
+    // Handle sizing
+    if (rectData.horizontalSizing === 'FILL') {
+        rect.layoutAlign = 'STRETCH';
+    }
+    
+    container.appendChild(rect);
+    console.log('Rectangle created successfully');
+}
+
+async function createEllipseNode(ellipseData: any, container: FrameNode): Promise<void> {
+    console.log('Creating native ellipse:', ellipseData);
+    
+    const ellipse = figma.createEllipse();
+    
+    // Set dimensions
+    if (ellipseData.width && ellipseData.height) {
+        ellipse.resize(ellipseData.width, ellipseData.height);
+    } else {
+        ellipse.resize(50, 50); // Default size
+    }
+    
+    // Set fill color
+    if (ellipseData.fill) {
+        ellipse.fills = [{ type: 'SOLID', color: ellipseData.fill }];
+    }
+    
+    container.appendChild(ellipse);
+    console.log('Ellipse created successfully');
+}
