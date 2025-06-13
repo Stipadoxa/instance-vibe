@@ -339,6 +339,58 @@ IMPORTANT: You cannot use placeholder IDs. Each component must have a real compo
                 context += `\n`;
             }
         });
+
+        // Add this after the component listings loop and before the final examples
+
+        context += `
+
+## 🎯 VARIANT SELECTION STRATEGY
+
+### Content-Driven Selection
+Choose variants based on the DATA you need to display:
+- **1-line**: Simple labels, navigation items, single actions
+- **2-line**: Items with descriptions, current values, or secondary info  
+- **3-line**: Rich content (name + description + metadata)
+
+### UX-Driven Selection Rules:
+- **Simplicity**: Use the minimal variant that accommodates your content
+- **Hierarchy**: Primary variants for main actions, secondary for supporting actions  
+- **Progressive disclosure**: Simple variants for overviews, detailed variants for drill-downs
+- **Consistency**: Maintain variant patterns within the same context/list
+
+### Content-Specific Examples:
+- **Chat message**: 2-line + leading avatar + trailing timestamp
+- **Settings item**: 1-line + leading icon + trailing text (current value)
+- **Form submit button**: Primary variant for final action
+- **Add field button**: Secondary variant for optional actions
+- **Navigation item**: 1-line + leading icon + trailing chevron
+- **Contact list**: 2-line + leading avatar + name as primary + status as secondary
+
+### Data Inference Fallback:
+**ONLY when user provides minimal details**, infer realistic data needs based on common patterns.
+
+**Use this fallback ONLY IF:**
+- User gives generic requests like "create a chat screen" or "settings page"  
+- No specific content, text, or data structure is mentioned
+- Request lacks details about what information should be displayed
+
+**DO NOT use this fallback IF:**
+- User specifies exact text content ("email field", "Sign In button")
+- User mentions specific data ("show username and email")
+- User describes particular layout requirements
+- User is modifying existing design (iteration mode)
+
+**Common Interface Patterns & Expected Data:**
+- **Chat/Messages**: Sender name + message + timestamp + avatar → 2-line + leading avatar + trailing time
+- **Settings screens**: Setting names + current values → 1-line + leading icons + trailing current state
+- **Contact lists**: Name + phone/email + status → 2-line + leading avatar + trailing status
+- **Product lists**: Product name + price + description → 2-line + leading image + trailing price
+- **Form fields**: Label + placeholder/helper text → Use supporting-text for hints
+- **Navigation menus**: Page/section names + navigation indicators → 1-line + leading icons + trailing chevrons
+
+**Fallback Rule**: Fill in realistic data patterns ONLY for generic requests. Respect user's specific content when provided.
+
+`;
     
         // 🔧 FIXED: Enhanced examples with actual IDs
         context += `**Remember**: Always use the exact componentNodeId values listed above. Never use placeholder IDs.
