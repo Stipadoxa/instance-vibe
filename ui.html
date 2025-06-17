@@ -115,7 +115,47 @@
             width: auto;
             margin: 0 4px 0 0;
         }
+.platform-toggle-container {
+  margin-bottom: 16px;
+}
 
+.toggle-label {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #374151;
+}
+
+.toggle-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6b7280;
+}
+
+.toggle-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.toggle-btn.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #3b82f6;
+  font-weight: 600;
+}
         .input-group {
             margin-bottom: 12px;
         }
@@ -795,7 +835,19 @@
                 <button class="btn btn-secondary btn-small" onclick="resetToOriginal()">↩️ Reset to Original</button>
             </div>
         </div>
-
+    <!-- INSERT PLATFORM TOGGLE HERE -->
+    <div class="platform-toggle-container">
+        <label class="toggle-label">Platform:</label>
+        <div class="toggle-buttons">
+            <button id="mobile-toggle" class="toggle-btn active" data-platform="mobile">
+                📱 Mobile
+            </button>
+            <button id="desktop-toggle" class="toggle-btn" data-platform="desktop">
+                🖥️ Desktop
+            </button>
+        </div>
+    </div>
+    <!-- END PLATFORM TOGGLE -->
         <!-- Image Upload Section -->
         <div class="section">
             <h3>Reference Image (Optional)</h3>
@@ -1294,6 +1346,38 @@ Each item in the "items" array must be a complete, separate object.
     
     <!-- MAIN UI SCRIPT WITH SESSION MANAGEMENT -->
     <script>
+        // Platform toggle functionality
+let currentPlatform = 'mobile'; // Default to mobile
+
+document.getElementById('mobile-toggle').addEventListener('click', function() {
+  setActivePlatform('mobile');
+});
+
+document.getElementById('desktop-toggle').addEventListener('click', function() {
+  setActivePlatform('desktop');
+});
+
+function setActivePlatform(platform) {
+  currentPlatform = platform;
+  
+  // Update button states
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.getElementById(platform + '-toggle').classList.add('active');
+  
+  // Store in session storage for persistence
+  sessionStorage.setItem('aidesigner_platform', platform);
+  
+  console.log('Platform switched to:', platform);
+}
+
+// Restore platform choice on page load
+document.addEventListener('DOMContentLoaded', function() {
+  const savedPlatform = sessionStorage.getItem('aidesigner_platform') || 'mobile';
+  setActivePlatform(savedPlatform);
+});
+
         // Global Variables and Core Functions
         const componentTypes = {
             'Navigation': ['appbar', 'navbar', 'tab', 'tabs', 'breadcrumb', 'pagination', 'navigation', 'sidebar', 'bottom-navigation', 'menu'],
