@@ -68,6 +68,8 @@ class AIDesignerPromptGenerator {
     buildModificationSystemPrompt(currentDesign, modification, scanResults) {
         const componentInfo = this.analyzeAvailableComponents(scanResults);
         const designSystemContext = this.buildDesignSystemContext(componentInfo);
+        const platformContext = this.buildPlatformContext(platform);
+
 
         return `You are an expert UX Designer modifying an existing UI design based on a user's request.
 
@@ -174,11 +176,13 @@ ${userRequest || "Recreate the layout from the provided image."}`;
     /**
      * Builds expert UX designer system prompt
      */
-    buildExpertSystemPrompt(scanResults) {
+buildExpertSystemPrompt(scanResults, platform = 'mobile') {
         const componentInfo = this.analyzeAvailableComponents(scanResults);
         const designSystemContext = this.buildDesignSystemContext(componentInfo);
         
-        return `${this.basePersonality}
+       return `${this.basePersonality}
+
+${platformContext}
 
 ${designSystemContext}
 
@@ -188,6 +192,39 @@ ${this.getUXPrinciples()}
 
 ${this.getJSONExamples(componentInfo)}`;
     }
+    buildPlatformContext(platform) {
+    if (platform === 'desktop') {
+        return `## 🖥️ DESKTOP PLATFORM CONTEXT
+
+**Target Device:** Desktop/laptop with mouse and keyboard
+**Screen Width:** 1200px+ (use wider layouts)
+**Interaction:** Mouse precision, hover states, right-click menus
+**Layout Philosophy:** Multi-column layouts, horizontal space utilization
+**Touch Targets:** Smaller elements acceptable (mouse precision)
+**Navigation:** Top navigation bars, sidebar menus, breadcrumbs
+
+**Desktop Layout Patterns:**
+- header-sidebar-content (admin panels)
+- header-2column (content + sidebar)  
+- header-3column (nav + content + sidebar)
+- dashboard-grid (cards in grid layout)`;
+    } else {
+        return `## 📱 MOBILE PLATFORM CONTEXT
+
+**Target Device:** Mobile phone with touch interface
+**Screen Width:** 360px (single column layouts)
+**Interaction:** Thumb navigation, touch targets, swipe gestures
+**Layout Philosophy:** Vertical stacking, one task at a time
+**Touch Targets:** Minimum 44px height for all interactive elements
+**Navigation:** Bottom tabs, hamburger menus, back buttons
+
+**Mobile Layout Patterns:**
+- header-content (simple pages)
+- header-content-footer (with bottom navigation)
+- tab-content (tabbed interfaces)
+- modal-overlay (full-screen modals)`;
+    }
+}
 
     /**
      * Builds the core UX expert personality and role

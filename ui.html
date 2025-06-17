@@ -1366,17 +1366,12 @@ function setActivePlatform(platform) {
   });
   document.getElementById(platform + '-toggle').classList.add('active');
   
-  // Store in session storage for persistence
-  sessionStorage.setItem('aidesigner_platform', platform);
+  // Just log for now (no persistence needed)
+console.log('Platform switched to:', platform);
   
   console.log('Platform switched to:', platform);
 }
 
-// Restore platform choice on page load
-document.addEventListener('DOMContentLoaded', function() {
-  const savedPlatform = sessionStorage.getItem('aidesigner_platform') || 'mobile';
-  setActivePlatform(savedPlatform);
-});
 
         // Global Variables and Core Functions
         const componentTypes = {
