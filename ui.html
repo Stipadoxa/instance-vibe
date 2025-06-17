@@ -690,6 +690,12 @@
             font-size: 9px;
             font-weight: 500;
         }
+        .toggle-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f3f4f6;
+    color: #9ca3af;
+}
     </style>
 </head>
 <body>
@@ -842,8 +848,8 @@
             <button id="mobile-toggle" class="toggle-btn active" data-platform="mobile">
                 📱 Mobile
             </button>
-            <button id="desktop-toggle" class="toggle-btn" data-platform="desktop">
-                🖥️ Desktop
+            <button id="desktop-toggle" class="toggle-btn" data-platform="desktop" disabled>
+                🖥️ Desktop <span style="font-size: 9px; opacity: 0.7;">(Soon)</span>
             </button>
         </div>
     </div>
@@ -2213,9 +2219,13 @@ console.log('Platform switched to:', platform);
 
             try {
                 const apiKey = await getApiKeyFromBackend();
-                const promptData = promptGenerator.generatePrompt(userPrompt, scanResults, [], !!selectedImage);
+                const promptData = promptGenerator.generatePrompt(userPrompt, scanResults, [], !!selectedImage, currentPlatform);
+                console.log('🔍 Platform being sent:', currentPlatform);
+console.log('🔍 Full prompt preview:', promptData.fullPrompt.substring(0, 500));
                 const response = await callGeminiAPI(apiKey, promptData.fullPrompt, selectedImage);
-
+console.log('🔍 Raw LLM response:', response);
+console.log('🔍 Response length:', response.length);
+console.log('🔍 Response around position 776:', response.substring(770, 785));
                 const validation = validateAndFixJSONEnhanced(response);
                 if (!validation.isValid) throw new Error(`JSON parsing failed: ${validation.errors.join(', ')}`);
 

@@ -17,13 +17,13 @@ class AIDesignerPromptGenerator {
     /**
      * Main entry point - generates complete prompt for Gemini
      */
-    generatePrompt(userRequest, scanResults = [], conversationHistory = [], hasImage = false) {
+    generatePrompt(userRequest, scanResults = [], conversationHistory = [], hasImage = false, platform = 'mobile') {
         // Get the base prompt using existing logic
         if (hasImage) {
             var basePrompt = this.generateImageAnalysisPrompt(userRequest, scanResults);
         } else {
             const preprocessedRequest = this.preprocessForCommonIssues(userRequest);
-            const systemPrompt = this.buildExpertSystemPrompt(scanResults);
+            const systemPrompt = this.buildExpertSystemPrompt(scanResults, platform);
             const contextualGuidance = this.generateContextualGuidance(preprocessedRequest);
             const enhancedRequest = this.enhanceUserRequest(preprocessedRequest, contextualGuidance);
             
@@ -51,8 +51,7 @@ class AIDesignerPromptGenerator {
     /**
      * NEW: Generates a prompt for modifying an existing design.
      */
-    generateModificationPrompt(userRequest, currentDesignJSON, scanResults) {
-        const modificationSystemPrompt = this.buildModificationSystemPrompt(currentDesignJSON, userRequest, scanResults);
+generateModificationPrompt(userRequest, currentDesignJSON, scanResults, platform = 'mobile') {        const modificationSystemPrompt = this.buildModificationSystemPrompt(currentDesignJSON, userRequest, scanResults, platform);
         
         return {
             systemPrompt: "",
@@ -179,6 +178,7 @@ ${userRequest || "Recreate the layout from the provided image."}`;
 buildExpertSystemPrompt(scanResults, platform = 'mobile') {
         const componentInfo = this.analyzeAvailableComponents(scanResults);
         const designSystemContext = this.buildDesignSystemContext(componentInfo);
+        const platformContext = this.buildPlatformContext(platform);
         
        return `${this.basePersonality}
 
@@ -193,8 +193,10 @@ ${this.getUXPrinciples()}
 ${this.getJSONExamples(componentInfo)}`;
     }
     buildPlatformContext(platform) {
+        console.log('🔍 Building platform context for:', platform);
     if (platform === 'desktop') {
         return `## 🖥️ DESKTOP PLATFORM CONTEXT
+        
 
 **Target Device:** Desktop/laptop with mouse and keyboard
 **Screen Width:** 1200px+ (use wider layouts)
@@ -435,7 +437,7 @@ Choose variants based on the DATA you need to display:
 ## ✅ CORRECT JSON Example (List Item):
 \`\`\`json
 {
-  "layoutContainer": { "name": "Settings", "layoutMode": "VERTICAL", "width": 360, "itemSpacing": 8 },
+  "layoutContainer": { "name": "Settings", "layoutMode": "VERTICAL", "itemSpacing": 8 },
   "items": [
     { 
       "type": "list-item", 
@@ -621,10 +623,14 @@ Choose variants based on the DATA you need to display:
     "itemSpacing": 16
   },
   "items": [
-    // ... components and native elements go here
+    // ... components go here
   ]
 }
 \`\`\`
+
+### Platform-Specific Defaults:
+- **Mobile**: width: 360, padding: 16px, single column
+- **Desktop**: width: 1200, padding: 32px, multi-column possible
 
 ### 🎯 NATIVE vs COMPONENT ELEMENTS:
 
