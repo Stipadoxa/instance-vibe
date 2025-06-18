@@ -17,12 +17,16 @@ class AIDesignerPromptGenerator {
     /**
      * Main entry point - generates complete prompt for Gemini
      */
-    generatePrompt(userRequest, scanResults = [], conversationHistory = [], hasImage = false, platform = 'mobile') {
+  generatePrompt(userRequest, scanResults = [], conversationHistory = [], hasImage = false, platform = 'mobile') {
+    console.log('🔍 SIMPLE TEST: generatePrompt started!');
+    console.log('🔍 hasImage parameter:', hasImage);
+    console.log('🔍 platform parameter:', platform);
         // Get the base prompt using existing logic
         if (hasImage) {
             var basePrompt = this.generateImageAnalysisPrompt(userRequest, scanResults);
         } else {
             const preprocessedRequest = this.preprocessForCommonIssues(userRequest);
+            console.log('🔍 ABOUT TO CALL buildExpertSystemPrompt with platform:', platform);
             const systemPrompt = this.buildExpertSystemPrompt(scanResults, platform);
             const contextualGuidance = this.generateContextualGuidance(preprocessedRequest);
             const enhancedRequest = this.enhanceUserRequest(preprocessedRequest, contextualGuidance);
@@ -176,10 +180,11 @@ ${userRequest || "Recreate the layout from the provided image."}`;
      * Builds expert UX designer system prompt
      */
 buildExpertSystemPrompt(scanResults, platform = 'mobile') {
-        const componentInfo = this.analyzeAvailableComponents(scanResults);
-        const designSystemContext = this.buildDesignSystemContext(componentInfo);
-        const platformContext = this.buildPlatformContext(platform);
-        
+    console.log('🔍 DEBUG: buildExpertSystemPrompt called with platform:', platform);
+    const componentInfo = this.analyzeAvailableComponents(scanResults);
+    const designSystemContext = this.buildDesignSystemContext(componentInfo);
+    const platformContext = this.buildPlatformContext(platform);
+    console.log('🔍 DEBUG: platformContext generated, length:', platformContext.length);
        return `${this.basePersonality}
 
 ${platformContext}
@@ -192,7 +197,8 @@ ${this.getUXPrinciples()}
 
 ${this.getJSONExamples(componentInfo)}`;
     }
-    buildPlatformContext(platform = 'mobile') {
+  buildPlatformContext(platform = 'mobile') {
+    console.log('🔍 DEBUG: buildPlatformContext called with platform:', platform);
     console.log('🔍 Building mobile context for MVP');
     
     return `## 📱 MOBILE UX INTELLIGENCE SYSTEM

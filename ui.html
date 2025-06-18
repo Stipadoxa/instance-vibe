@@ -2396,7 +2396,26 @@ console.log('Platform switched to:', platform);
 
             try {
                 const apiKey = await getApiKeyFromBackend();
-                const promptData = promptGenerator.generatePrompt(userPrompt, scanResults, [], !!selectedImage, currentPlatform);
+                console.log('🔍 DEBUG: About to call generatePrompt');
+console.log('🔍 DEBUG: promptGenerator exists?', !!promptGenerator);
+console.log('🔍 DEBUG: currentPlatform:', currentPlatform);
+console.log('🔍 DEBUG: userPrompt:', userPrompt);
+
+if (!promptGenerator) {
+    console.error('❌ ERROR: promptGenerator is undefined!');
+    throw new Error('Prompt generator not initialized');
+}
+
+const promptData = promptGenerator.generatePrompt(userPrompt, scanResults, [], !!selectedImage, currentPlatform);
+console.log('🔍 DEBUG: promptData returned:', promptData);
+
+// NEW: Check if mobile intelligence is in the prompt
+console.log('🔍 MOBILE CHECK: Contains "MOBILE UX INTELLIGENCE"?', promptData.fullPrompt.includes('MOBILE UX INTELLIGENCE'));
+console.log('🔍 PATTERN CHECK: Contains "mobilePattern"?', promptData.fullPrompt.includes('mobilePattern'));
+console.log('🔍 PROMPT SIZE:', promptData.fullPrompt.length, 'characters');
+
+// Show first 500 characters of prompt
+console.log('🔍 PROMPT START:', promptData.fullPrompt.substring(0, 500));
                 console.log('🔍 Platform being sent:', currentPlatform);
 console.log('🔍 Full prompt preview:', promptData.fullPrompt.substring(0, 500));
                 const response = await callGeminiAPI(apiKey, promptData.fullPrompt, selectedImage);
@@ -2720,8 +2739,14 @@ console.log('🔍 Response around position 776:', response.substring(770, 785));
             setupComponentListeners();
             setupApiKeyHandling();
             setupImageUploadListeners();
-            promptGenerator = new AIDesignerPromptGenerator();
-            startFresh();
+           try {
+    console.log('🔍 DEBUG: About to create AIDesignerPromptGenerator');
+    promptGenerator = new AIDesignerPromptGenerator();
+    console.log('🔍 DEBUG: Prompt generator created successfully:', !!promptGenerator);
+} catch (error) {
+    console.error('❌ ERROR creating prompt generator:', error);
+}
+startFresh();
             
             // Request saved data
             parent.postMessage({ pluginMessage: { type: 'get-saved-scan' } }, '*');
