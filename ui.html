@@ -1395,7 +1395,7 @@ console.log('Platform switched to:', platform);
         let searchQuery = '';
         let lastGeneratedJSON = null;
         let promptGenerator = null;
-        let selectedImage = null;
+        let selectedImage = null; // Explicitly initialize as null
 
         // NEW: Enhanced state management for sessions
         let designState = {
@@ -1411,6 +1411,26 @@ console.log('Platform switched to:', platform);
         let pendingSessionRestore = null;
 
         // Validation and helper functions
+        // Debug function to check image state (call this in console if needed)
+function debugImageState() {
+    console.log('🔍 DEBUG IMAGE STATE:');
+    console.log('  - selectedImage:', selectedImage);
+    console.log('  - !!selectedImage:', !!selectedImage);
+    console.log('  - typeof selectedImage:', typeof selectedImage);
+    console.log('  - isValidImageSelected():', isValidImageSelected());
+    
+    const input = document.getElementById('imageInput');
+    console.log('  - input.files.length:', input ? input.files.length : 'no input');
+    console.log('  - input.value:', input ? input.value : 'no input');
+}
+
+// More robust validation in prompt generation
+function isValidImageSelected() {
+    return selectedImage && 
+           selectedImage.base64 && 
+           selectedImage.type && 
+           selectedImage.base64.length > 0;
+}
         function validateAndFixJSONEnhanced(jsonString) {
             try {
                 const parsed = JSON.parse(jsonString);
@@ -2179,27 +2199,31 @@ console.log('Platform switched to:', platform);
 
         // AI Generator & Iteration Functions
         function startFresh() {
-            // Reset state object
-            designState = {
-                original: null,
-                current: null,
-                history: [],
-                frameId: null,
-                isIterating: false
-            };
+    // Reset state object
+    designState = {
+        original: null,
+        current: null,
+        history: [],
+        frameId: null,
+        isIterating: false
+    };
 
-            // Update UI elements
-            document.getElementById('iterationContext').style.display = 'none';
-            document.getElementById('userPromptLabel').textContent = 'Describe the UI you want to create:';
-            document.getElementById('userPrompt').placeholder = 'create a login form with email and password fields...';
-            document.getElementById('currentContext').textContent = 'Ready for new UI';
-            document.getElementById('userPrompt').value = '';
-            document.getElementById('generateBtn').textContent = '🪄 Generate UI';
-            document.getElementById('imageUploadArea').style.display = 'block';
+    // 🔧 ENSURE CLEAN IMAGE STATE: Force clear selectedImage
+    selectedImage = null;
+    console.log('🔄 startFresh called, selectedImage reset to:', selectedImage);
 
-            clearStatus('generationStatus');
-            clearImageSelection();
-        }
+    // Update UI elements
+    document.getElementById('iterationContext').style.display = 'none';
+    document.getElementById('userPromptLabel').textContent = 'Describe the UI you want to create:';
+    document.getElementById('userPrompt').placeholder = 'create a login form with email and password fields...';
+    document.getElementById('currentContext').textContent = 'Ready for new UI';
+    document.getElementById('userPrompt').value = '';
+    document.getElementById('generateBtn').textContent = '🪄 Generate UI';
+    document.getElementById('imageUploadArea').style.display = 'block';
+
+    clearStatus('generationStatus');
+    clearImageSelection(); // This will also clear the UI state
+}
 
         function enterIterationMode(generatedJSON, frameId) {
             designState.original = JSON.parse(JSON.stringify(generatedJSON));
@@ -2291,137 +2315,141 @@ console.log('Platform switched to:', platform);
         }
         
         async function iterateOnDesign() {
-            const userPrompt = document.getElementById('userPrompt').value.trim();
-            const generateBtn = document.getElementById('generateBtn');
+    const userPrompt = document.getElementById('userPrompt').value.trim();
+    const generateBtn = document.getElementById('generateBtn');
 
-            if (!userPrompt) {
-                showStatus('generationStatus', '❌ Please describe the changes you want to make.', 'error');
-                return;
-            }
+    if (!userPrompt) {
+        showStatus('generationStatus', '❌ Please describe the changes you want to make.', 'error');
+        return;
+    }
 
-            generateBtn.disabled = true;
-            generateBtn.textContent = '🪄 Applying...';
-            showStatus('generationStatus', '🤖 Gemini is analyzing your changes...', 'info');
+    // 🔍 DEBUG: Verify image state before generating modification prompt
+    console.log('🔍 Before generating modification prompt:');
+    console.log('  - selectedImage:', selectedImage);
+    console.log('  - !!selectedImage:', !!selectedImage);
+    console.log('  - isValidImageSelected():', isValidImageSelected());
+    console.log('  - Should use modification prompt (not image prompt)');
 
+    generateBtn.disabled = true;
+    generateBtn.textContent = '🪄 Applying...';
+    showStatus('generationStatus', '🤖 Gemini is analyzing your changes...', 'info');
+
+    try {
+        const apiKey = await getApiKeyFromBackend();
+        
+        // 🔧 IMPORTANT: Use generateModificationPrompt directly with platform support
+        const promptData = promptGenerator.generateModificationPrompt(
+            userPrompt, 
+            designState.current, 
+            scanResults, 
+            currentPlatform  // ← Add platform parameter
+        );
+        console.log('✅ Using modification prompt with platform:', currentPlatform);
+        
+        const response = await callGeminiAPI(apiKey, promptData.fullPrompt, null);
+        
+        // AI Self-Check & Retry System for Modifications
+        const basicValidation = validateAndFixJSONEnhanced(response);
+        if (!basicValidation.isValid) {
+            throw new Error(`JSON parsing failed: ${basicValidation.errors.join(', ')}`);
+        }
+        
+        // Run AI validation on the modification
+        const aiValidation = validateAIResponse(basicValidation.data, scanResults);
+        let validatedData;
+        
+        if (aiValidation.isValid) {
+            console.log('✅ Modification passed AI validation on first attempt');
+            validatedData = basicValidation.data;
+        } else {
+            console.log('❌ Modification validation failed, starting retry system...');
             try {
-                const apiKey = await getApiKeyFromBackend();
-                const promptData = promptGenerator.generateModificationPrompt(userPrompt, designState.current, scanResults);
-                const response = await callGeminiAPI(apiKey, promptData.fullPrompt, null);
-                
-               // AI Self-Check & Retry System for Modifications
-                const basicValidation = validateAndFixJSONEnhanced(response);
-                if (!basicValidation.isValid) {
-                    throw new Error(`JSON parsing failed: ${basicValidation.errors.join(', ')}`);
-                }
-                
-                // Run AI validation on the modification
-                const aiValidation = validateAIResponse(basicValidation.data, scanResults);
-                let validatedData;
-                
-                if (aiValidation.isValid) {
-                    // Perfect! Modification worked on first try
-                    console.log('✅ Modification passed AI validation on first attempt');
-                    validatedData = basicValidation.data;
-                } else {
-                    // AI validation failed, trigger retry system for modifications
-                    console.log('❌ Modification validation failed, starting retry system...');
-                    console.log('Errors:', aiValidation.errors);
-                    
-                    try {
-                        validatedData = await executeRetry(userPrompt, aiValidation, scanResults, 1);
-                        showStatus('generationStatus', '✅ Modification retry successful! Changes validated and improved.', 'success');
-                    } catch (retryError) {
-                        throw new Error(`Modification validation and all retries failed: ${retryError.message}`);
-                    }
-                }
-                
-                const layoutData = validatedData;
-                
-                const modifiedJSON = layoutData;
-                lastGeneratedJSON = modifiedJSON;
-
-                // Update state
-                designState.current = modifiedJSON;
-                designState.history.push(userPrompt);
-                updateModificationHistory();
-                saveCurrentSession();
-
-                // Display debug JSON
-                const debugSection = document.getElementById('jsonDebugSection');
-                if(debugSection) debugSection.style.display = 'block';
-                const jsonOutput = document.getElementById('jsonOutput');
-                if(jsonOutput) jsonOutput.textContent = JSON.stringify(modifiedJSON, null, 2);
-
-                // Send to backend for in-place update
-                parent.postMessage({
-                    pluginMessage: {
-                        type: 'modify-existing-ui',
-                        payload: {
-                            modifiedJSON: modifiedJSON,
-                            frameId: designState.frameId
-                        }
-                    }
-                }, '*');
-
-                document.getElementById('userPrompt').value = '';
-                showStatus('generationStatus', '✅ Changes applied successfully!', 'success');
-
-            } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                showStatus('generationStatus', `❌ Error: ${errorMessage}`, 'error');
-                
-                if (userPrompt.toLowerCase().includes('and') && userPrompt.toLowerCase().includes('icon')) {
-                    setTimeout(() => {
-                        showStatus('generationStatus', '💡 Tip: Try making one change at a time, like "add leading icon" first, then "add trailing icon".', 'info');
-                    }, 3000);
-                }
-            } finally {
-                generateBtn.disabled = false;
-                generateBtn.textContent = '🪄 Apply Changes';
+                validatedData = await executeRetry(userPrompt, aiValidation, scanResults, 1);
+                showStatus('generationStatus', '✅ Modification retry successful! Changes validated.', 'success');
+            } catch (retryError) {
+                throw new Error(`Modification validation failed: ${retryError.message}`);
             }
         }
+        
+        const modifiedJSON = validatedData;
+        lastGeneratedJSON = modifiedJSON;
 
-        async function generateNewDesign() {
-            const userPrompt = document.getElementById('userPrompt').value.trim();
-            const generateBtn = document.getElementById('generateBtn');
-            
-            if (!userPrompt && !selectedImage) {
-                showStatus('generationStatus', '❌ Please describe the UI or upload a reference image', 'error');
-                return;
+        // Update state
+        designState.current = modifiedJSON;
+        designState.history.push(userPrompt);
+        updateModificationHistory();
+        saveCurrentSession();
+
+        // Display debug JSON
+        const debugSection = document.getElementById('jsonDebugSection');
+        if(debugSection) debugSection.style.display = 'block';
+        const jsonOutput = document.getElementById('jsonOutput');
+        if(jsonOutput) jsonOutput.textContent = JSON.stringify(modifiedJSON, null, 2);
+
+        // Send to backend for in-place update
+        parent.postMessage({
+            pluginMessage: {
+                type: 'modify-existing-ui',
+                payload: {
+                    modifiedJSON: modifiedJSON,
+                    frameId: designState.frameId
+                }
             }
-            
-            generateBtn.disabled = true;
-            generateBtn.textContent = '🪄 Generating...';
-            showStatus('generationStatus', '🤖 Gemini is generating UI...', 'info');
+        }, '*');
 
-            try {
-                const apiKey = await getApiKeyFromBackend();
-                console.log('🔍 DEBUG: About to call generatePrompt');
-console.log('🔍 DEBUG: promptGenerator exists?', !!promptGenerator);
-console.log('🔍 DEBUG: currentPlatform:', currentPlatform);
-console.log('🔍 DEBUG: userPrompt:', userPrompt);
+        document.getElementById('userPrompt').value = '';
+        showStatus('generationStatus', '✅ Changes applied successfully!', 'success');
 
-if (!promptGenerator) {
-    console.error('❌ ERROR: promptGenerator is undefined!');
-    throw new Error('Prompt generator not initialized');
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        showStatus('generationStatus', `❌ Error: ${errorMessage}`, 'error');
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = '🪄 Apply Changes';
+    }
 }
 
-const promptData = promptGenerator.generatePrompt(userPrompt, scanResults, [], !!selectedImage, currentPlatform);
-console.log('🔍 DEBUG: promptData returned:', promptData);
+        async function generateNewDesign() {
+    const userPrompt = document.getElementById('userPrompt').value.trim();
+    const generateBtn = document.getElementById('generateBtn');
+    
+    // 🔧 ROBUST IMAGE VALIDATION: Use more strict check
+    const hasValidImage = isValidImageSelected();
+    console.log('🔍 Image validation:');
+    console.log('  - selectedImage:', selectedImage);
+    console.log('  - hasValidImage:', hasValidImage);
+    
+    if (!userPrompt && !hasValidImage) {
+        showStatus('generationStatus', '❌ Please describe the UI or upload a reference image', 'error');
+        return;
+    }
+    
+    generateBtn.disabled = true;
+    generateBtn.textContent = '🪄 Generating...';
+    showStatus('generationStatus', '🤖 Gemini is generating UI...', 'info');
 
-// NEW: Check if mobile intelligence is in the prompt
-console.log('🔍 MOBILE CHECK: Contains "MOBILE UX INTELLIGENCE"?', promptData.fullPrompt.includes('MOBILE UX INTELLIGENCE'));
-console.log('🔍 PATTERN CHECK: Contains "mobilePattern"?', promptData.fullPrompt.includes('mobilePattern'));
-console.log('🔍 PROMPT SIZE:', promptData.fullPrompt.length, 'characters');
-
-// Show first 500 characters of prompt
-console.log('🔍 PROMPT START:', promptData.fullPrompt.substring(0, 500));
-                console.log('🔍 Platform being sent:', currentPlatform);
-console.log('🔍 Full prompt preview:', promptData.fullPrompt.substring(0, 500));
-                const response = await callGeminiAPI(apiKey, promptData.fullPrompt, selectedImage);
-console.log('🔍 Raw LLM response:', response);
-console.log('🔍 Response length:', response.length);
-console.log('🔍 Response around position 776:', response.substring(770, 785));
+    try {
+        const apiKey = await getApiKeyFromBackend();
+        
+        // 🔧 USE ROBUST VALIDATION: Pass hasValidImage instead of !!selectedImage
+        const promptData = promptGenerator.generatePrompt(
+            userPrompt, 
+            scanResults, 
+            [], 
+            hasValidImage,  // ← Use robust validation here
+            currentPlatform
+        );
+        
+        console.log('🔍 Using hasValidImage:', hasValidImage);
+        console.log('🔍 Prompt type:', hasValidImage ? 'IMAGE ANALYSIS' : 'TEXT ONLY');
+        
+        // Pass actual image only if validation passes
+        const imageToSend = hasValidImage ? selectedImage : null;
+        const response = await callGeminiAPI(apiKey, promptData.fullPrompt, imageToSend);
+        
+        console.log('🔍 Raw LLM response:', response);
+        console.log('🔍 Response length:', response.length);
+        console.log('🔍 Response around position 776:', response.substring(770, 785));
 // AI Self-Check & Retry System Integration
                 const basicValidation = validateAndFixJSONEnhanced(response);
                 if (!basicValidation.isValid) {
@@ -2464,14 +2492,14 @@ console.log('🔍 Response around position 776:', response.substring(770, 785));
                     }
                 }, '*');
                 
-            } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                showStatus('generationStatus', `❌ Error: ${errorMessage}`, 'error');
-            } finally {
-                generateBtn.disabled = false;
-                generateBtn.textContent = '🪄 Generate UI';
-            }
-        }
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        showStatus('generationStatus', `❌ Error: ${errorMessage}`, 'error');
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = '🪄 Generate UI';
+    }
+}
 
         async function getApiKeyFromBackend() {
             showStatus('generationStatus', '🔄 Getting API key...', 'info');
@@ -2696,42 +2724,73 @@ console.log('🔍 Response around position 776:', response.substring(770, 785));
         };
 
         function setupImageUploadListeners() {
-            const area = document.getElementById('imageUploadArea');
-            const input = document.getElementById('imageInput');
-            
-            if (area) {
-                area.addEventListener('click', (e) => {
-                    if (e.target.tagName !== 'BUTTON') input.click();
-                });
-                
-                area.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    area.style.borderColor = '#0366d6';
-                });
-                
-                area.addEventListener('dragleave', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    area.style.borderColor = '#d1d5da';
-                });
-                
-                area.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    area.style.borderColor = '#d1d5da';
-                    const files = e.dataTransfer.files;
-                    if (files.length > 0) handleImageSelection(files[0]);
-                });
+    const area = document.getElementById('imageUploadArea');
+    const input = document.getElementById('imageInput');
+    
+    if (area) {
+        area.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'BUTTON') input.click();
+        });
+        
+        area.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            area.style.borderColor = '#0366d6';
+        });
+        
+        area.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            area.style.borderColor = '#d1d5da';
+        });
+        
+        area.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            area.style.borderColor = '#d1d5da';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleImageSelection(files[0]);
+            } else {
+                // 🔧 FIX: Ensure selectedImage is null if no files dropped
+                console.log('📝 No files dropped, ensuring selectedImage is null');
+                selectedImage = null;
             }
+        });
+    }
+    
+    if (input) {
+        input.addEventListener('change', (e) => {
+            console.log('🔍 File input change event fired');
+            const files = e.target.files;
+            console.log('🔍 Files count:', files.length);
             
-            if (input) {
-                input.addEventListener('change', (e) => {
-                    const files = e.target.files;
-                    if (files.length > 0) handleImageSelection(files[0]);
-                });
+            if (files.length > 0) {
+                console.log('📁 File selected:', files[0].name);
+                handleImageSelection(files[0]);
+            } else {
+                // 🔧 CRITICAL FIX: When user cancels file dialog, explicitly clear selectedImage
+                console.log('❌ File dialog canceled or no file selected, clearing selectedImage');
+                selectedImage = null;
+                console.log('✅ selectedImage after clearing:', selectedImage);
             }
-        }
+        });
+        
+        // 🔧 ADDITIONAL FIX: Listen for focus events to detect when dialog opens/closes
+        input.addEventListener('focus', () => {
+            console.log('🔍 File input focused (dialog opening)');
+        });
+        
+        input.addEventListener('blur', () => {
+            console.log('🔍 File input blurred (dialog closed)');
+            // Double-check that selectedImage is properly set
+            if (!input.files || input.files.length === 0) {
+                console.log('💡 Dialog closed with no files, ensuring selectedImage is null');
+                selectedImage = null;
+            }
+        });
+    }
+}
 
         // Document ready initialization
         document.addEventListener('DOMContentLoaded', () => {
