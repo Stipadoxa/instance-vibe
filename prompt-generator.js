@@ -632,6 +632,11 @@ Choose variants based on the DATA you need to display:
 - **Mobile**: width: 360, padding: 16px, single column
 - **Desktop**: width: 1200, padding: 32px, multi-column possible
 
+### Native vs Component Elements:
+- Use \`"type": "native-text"\` for custom text that needs specific styling
+- Use design system components when available (with componentNodeId)
+- Native elements should NOT have componentNodeId
+
 ### 🎯 NATIVE vs COMPONENT ELEMENTS:
 
 **Use NATIVE elements for:**
@@ -927,6 +932,21 @@ This approach gives you maximum flexibility while maintaining design system cons
 }
 \`\`\`
 *UX decision: Each major section (file upload, captcha, submit button) is a separate item in the main "items" array. The submit button is NOT nested inside any other container.*
+### Native Text Element Example:
+\`\`\`json
+{
+  "type": "native-text",
+  "text": "Welcome to our app",
+  "properties": {
+    "fontSize": 24,
+    "fontWeight": "bold",
+    "alignment": "center",
+    "color": {"r": 0.2, "g": 0.2, "b": 0.2},
+    "horizontalSizing": "FILL"
+  }
+}
+\`\`\`
+*Use native-text when you need custom styling not available in design system components.*
 
 ### Settings Screen with Smart Variants:
 \`\`\`json

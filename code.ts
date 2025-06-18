@@ -729,6 +729,7 @@ async function applyTextProperties(instance: InstanceNode, properties: any): Pro
     );
     
     const textMappings: {[key: string]: string[]} = {
+        'content': ['headline', 'title', 'text', 'label', 'primary'],
         'headline': ['headline', 'title', 'text', 'label', 'primary'],
         'text': ['headline', 'title', 'text', 'label', 'primary'],
         'supporting-text': ['supporting', 'subtitle', 'description', 'secondary', 'body'],
@@ -1308,50 +1309,59 @@ main().catch(err => {
     figma.closePlugin("A critical error occurred.");
 });
 
-// Text creation helper function
 async function createTextNode(textData: any, container: FrameNode): Promise<void> {
-    console.log('Creating text node:', textData.content);
+    console.log('Creating native text:', textData);
     
-    // Create a new text node
     const textNode = figma.createText();
     
-    // Load default font (required before setting text)
+    // Load default font
     await figma.loadFontAsync({ family: "Inter", style: "Regular" });
     
-    // Set the text content
-    textNode.characters = textData.content || "Text";
+    // Extract text content from various possible property names
+    const textContent = textData.text || textData.content || textData.properties?.content || textData.characters || "Text";
+    textNode.characters = textContent;
     
-    // Set font size if specified
-    if (textData.fontSize) {
-        textNode.fontSize = textData.fontSize;
-    }
+    // Extract and apply properties from the properties object
+    const props = textData.properties || textData;
     
-    // Set font weight if specified
-    if (textData.fontWeight === 'bold') {
+    // Font size
+    const fontSize = props.fontSize || props.size || props.textSize || 16;
+    textNode.fontSize = fontSize;
+    
+    // Font weight
+    if (props.fontWeight === 'bold' || props.weight === 'bold' || props.style === 'bold') {
         await figma.loadFontAsync({ family: "Inter", style: "Bold" });
         textNode.fontName = { family: "Inter", style: "Bold" };
     }
     
-    // Set text alignment
-    if (textData.alignment === 'center') {
+    // Text alignment
+    if (props.alignment === 'center' || props.textAlign === 'center') {
         textNode.textAlignHorizontal = 'CENTER';
-    } else if (textData.alignment === 'right') {
+    } else if (props.alignment === 'right' || props.textAlign === 'right') {
         textNode.textAlignHorizontal = 'RIGHT';
     } else {
         textNode.textAlignHorizontal = 'LEFT';
     }
     
-    // Set sizing behavior
-    if (textData.horizontalSizing === 'FILL') {
+    // Color (if available)
+    if (props.color) {
+        const fills = textNode.fills as Paint[];
+        if (fills.length > 0 && fills[0].type === 'SOLID') {
+            textNode.fills = [{ type: 'SOLID', color: props.color }];
+            textNode.fills = fills;
+        }
+    }
+    
+    // Sizing behavior
+    if (props.horizontalSizing === 'FILL') {
         textNode.layoutAlign = 'STRETCH';
         textNode.textAutoResize = 'HEIGHT';
     } else {
         textNode.textAutoResize = 'WIDTH_AND_HEIGHT';
     }
     
-    // Add to container
     container.appendChild(textNode);
-    console.log('Text node created successfully');
+    console.log('Native text created successfully');
 }
 
 async function createRectangleNode(rectData: any, container: FrameNode): Promise<void> {

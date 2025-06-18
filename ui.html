@@ -1448,7 +1448,164 @@ console.log('Platform switched to:', platform);
                 }
             }
         }
-
+// NEW: AI Self-Check & Retry System - Phase 1: Validation Layer
+        function validateAIResponse(jsonData, scanResults) {
+            const validationResult = {
+                isValid: true,
+                errors: [],
+                warnings: [],
+                severity: 'none' // 'low', 'medium', 'high', 'critical'
+            };
+            
+            console.log('🔍 Starting AI response validation...');
+            
+            // Step 1: Basic Structure Validation
+            if (!jsonData.layoutContainer && !jsonData.items) {
+                validationResult.isValid = false;
+                validationResult.errors.push('Missing required layoutContainer or items');
+                validationResult.severity = 'critical';
+                return validationResult;
+            }
+            
+            if (!jsonData.items || !Array.isArray(jsonData.items)) {
+                validationResult.isValid = false;
+                validationResult.errors.push('Missing or invalid items array');
+                validationResult.severity = 'critical';
+                return validationResult;
+            }
+            
+            // Step 2: Component ID Validation
+            const availableComponents = new Set();
+            if (scanResults && Array.isArray(scanResults)) {
+                scanResults.forEach(comp => availableComponents.add(comp.id));
+            }
+            
+            let invalidComponentCount = 0;
+            jsonData.items.forEach((item, index) => {
+                if (item.type && !item.type.startsWith('native-') && !item.type.startsWith('layoutContainer')) {
+                    if (!item.componentNodeId) {
+                        validationResult.errors.push(`Item ${index}: Missing componentNodeId for type "${item.type}"`);
+                        invalidComponentCount++;
+                    } else if (!availableComponents.has(item.componentNodeId)) {
+                        validationResult.errors.push(`Item ${index}: Component ID "${item.componentNodeId}" not found in design system`);
+                        invalidComponentCount++;
+                    }
+                }
+            });
+            
+            // Set severity based on component issues
+            if (invalidComponentCount > 0) {
+                validationResult.isValid = false;
+                if (invalidComponentCount >= jsonData.items.length * 0.5) {
+                    validationResult.severity = 'critical';
+                } else if (invalidComponentCount >= jsonData.items.length * 0.3) {
+                    validationResult.severity = 'high';
+                } else {
+                    validationResult.severity = 'medium';
+                }
+            }
+            
+            console.log(`✅ Validation complete. Valid: ${validationResult.isValid}, Severity: ${validationResult.severity}`);
+            return validationResult;
+        }
+        // NEW: AI Self-Check & Retry System - Phase 2: Retry Engine
+        function createRetryPrompt(originalPrompt, validationResult, scanResults, attemptNumber) {
+            console.log(`🔄 Creating retry prompt (attempt ${attemptNumber})`);
+            
+            let retryStrategy = '';
+            let enhancedPrompt = originalPrompt;
+            
+            // Determine retry strategy based on error severity and attempt number
+            if (attemptNumber === 1) {
+                // First retry: Specific error fixes
+                if (validationResult.errors.some(err => err.includes('Component ID') || err.includes('not found'))) {
+                    retryStrategy = 'COMPONENT_ID_FIX';
+                    enhancedPrompt += '\n\n// 🔧 COMPONENT ID CORRECTION NEEDED:\n';
+                    enhancedPrompt += '// The previous response used invalid component IDs.\n';
+                    enhancedPrompt += '// You MUST use ONLY the exact componentNodeId values from the design system list above.\n';
+                    enhancedPrompt += '// NEVER use placeholder IDs like "button_id" or "input_id".\n';
+                    
+                    // Add available component IDs as reminder
+                    if (scanResults && scanResults.length > 0) {
+                        enhancedPrompt += '// Available component IDs:\n';
+                        scanResults.slice(0, 5).forEach(comp => {
+                            enhancedPrompt += `// - ${comp.suggestedType}: "${comp.id}"\n`;
+                        });
+                    }
+                }
+                
+                if (validationResult.errors.some(err => err.includes('Missing') && err.includes('layoutContainer'))) {
+                    retryStrategy = 'STRUCTURE_FIX';
+                    enhancedPrompt += '\n\n// 🔧 STRUCTURE CORRECTION NEEDED:\n';
+                    enhancedPrompt += '// Your response must have BOTH "layoutContainer" and "items" at the top level.\n';
+                    enhancedPrompt += '// Follow this exact structure:\n';
+                    enhancedPrompt += '// {"layoutContainer": {...}, "items": [...]}\n';
+                }
+                
+            } else if (attemptNumber === 2) {
+                // Second retry: Simplified approach
+                retryStrategy = 'SIMPLIFIED';
+                enhancedPrompt = `Create a SIMPLIFIED version of: ${originalPrompt}
+                
+// 🎯 SIMPLIFIED GENERATION RULES:
+// - Use ONLY basic components (button, input, text)
+// - NO variants or complex properties
+// - Keep layout simple with VERTICAL layoutMode
+// - Maximum 3-4 items total
+// - Use exact componentNodeId values from design system`;
+                
+            } else {
+                // Third+ retry: Basic fallback
+                retryStrategy = 'BASIC_FALLBACK';
+                enhancedPrompt = `Create a basic UI layout with:
+- 1 text element for title
+- 1-2 input elements  
+- 1 button element
+- Simple vertical layout
+- Use ONLY exact componentNodeId values from the available design system components`;
+            }
+            
+            console.log(`📝 Retry strategy: ${retryStrategy}`);
+            return {
+                prompt: enhancedPrompt,
+                strategy: retryStrategy,
+                attemptNumber: attemptNumber
+            };
+        }
+        
+        // Retry execution function
+        async function executeRetry(originalPrompt, validationResult, scanResults, attemptNumber, maxRetries = 3) {
+            if (attemptNumber > maxRetries) {
+                throw new Error(`Failed after ${maxRetries} attempts. Last errors: ${validationResult.errors.join(', ')}`);
+            }
+            
+            showStatus('generationStatus', `🔄 Improving result (attempt ${attemptNumber}/${maxRetries})...`, 'info');
+            
+            const retryData = createRetryPrompt(originalPrompt, validationResult, scanResults, attemptNumber);
+            
+            try {
+                const apiKey = await getApiKeyFromBackend();
+                const response = await callGeminiAPI(apiKey, retryData.prompt, selectedImage);
+                
+                const validation = validateAndFixJSONEnhanced(response);
+                if (!validation.isValid) {
+                    throw new Error(`JSON parsing failed on retry ${attemptNumber}`);
+                }
+                
+                const aiValidation = validateAIResponse(validation.data, scanResults);
+                if (aiValidation.isValid) {
+                    console.log(`✅ Retry ${attemptNumber} successful!`);
+                    return validation.data;
+                } else {
+                    console.log(`❌ Retry ${attemptNumber} failed validation, trying again...`);
+                    return await executeRetry(originalPrompt, aiValidation, scanResults, attemptNumber + 1, maxRetries);
+                }
+                
+            } catch (error) {
+                console.log(`❌ Retry ${attemptNumber} failed:`, error.message);
+                return await executeRetry(originalPrompt, validationResult, scanResults, attemptNumber + 1, maxRetries);
+            }
+        }
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
@@ -1475,7 +1632,7 @@ console.log('Platform switched to:', platform);
                 console.error('Failed to copy:', err);
             }
         }
-
+        
         // NEW: Session Management Functions
         function showSessionModal(sessionData) {
             currentSessionData = sessionData;
@@ -2151,16 +2308,36 @@ console.log('Platform switched to:', platform);
                 const promptData = promptGenerator.generateModificationPrompt(userPrompt, designState.current, scanResults);
                 const response = await callGeminiAPI(apiKey, promptData.fullPrompt, null);
                 
-                const validation = validateAndFixJSONEnhanced(response);
-                if (!validation.isValid) {
-                    let errorMsg = "JSON generation failed. ";
-                    if (userPrompt.toLowerCase().includes('icon')) {
-                        errorMsg += "Try simpler requests like 'add leading icon' or 'add trailing icon' separately.";
-                    }
-                    throw new Error(errorMsg + ` Details: ${validation.errors.join(', ')}`);
+               // AI Self-Check & Retry System for Modifications
+                const basicValidation = validateAndFixJSONEnhanced(response);
+                if (!basicValidation.isValid) {
+                    throw new Error(`JSON parsing failed: ${basicValidation.errors.join(', ')}`);
                 }
                 
-                const modifiedJSON = validation.data;
+                // Run AI validation on the modification
+                const aiValidation = validateAIResponse(basicValidation.data, scanResults);
+                let validatedData;
+                
+                if (aiValidation.isValid) {
+                    // Perfect! Modification worked on first try
+                    console.log('✅ Modification passed AI validation on first attempt');
+                    validatedData = basicValidation.data;
+                } else {
+                    // AI validation failed, trigger retry system for modifications
+                    console.log('❌ Modification validation failed, starting retry system...');
+                    console.log('Errors:', aiValidation.errors);
+                    
+                    try {
+                        validatedData = await executeRetry(userPrompt, aiValidation, scanResults, 1);
+                        showStatus('generationStatus', '✅ Modification retry successful! Changes validated and improved.', 'success');
+                    } catch (retryError) {
+                        throw new Error(`Modification validation and all retries failed: ${retryError.message}`);
+                    }
+                }
+                
+                const layoutData = validatedData;
+                
+                const modifiedJSON = layoutData;
                 lastGeneratedJSON = modifiedJSON;
 
                 // Update state
@@ -2226,10 +2403,33 @@ console.log('🔍 Full prompt preview:', promptData.fullPrompt.substring(0, 500)
 console.log('🔍 Raw LLM response:', response);
 console.log('🔍 Response length:', response.length);
 console.log('🔍 Response around position 776:', response.substring(770, 785));
-                const validation = validateAndFixJSONEnhanced(response);
-                if (!validation.isValid) throw new Error(`JSON parsing failed: ${validation.errors.join(', ')}`);
-
-                const layoutData = validation.data;
+// AI Self-Check & Retry System Integration
+                const basicValidation = validateAndFixJSONEnhanced(response);
+                if (!basicValidation.isValid) {
+                    throw new Error(`JSON parsing failed: ${basicValidation.errors.join(', ')}`);
+                }
+                
+                // Run AI validation on the parsed JSON
+                const aiValidation = validateAIResponse(basicValidation.data, scanResults);
+                let layoutData;
+                
+                if (aiValidation.isValid) {
+                    // Perfect! First attempt worked
+                    console.log('✅ First attempt passed AI validation');
+                    layoutData = basicValidation.data;
+                } else {
+                    // AI validation failed, trigger retry system
+                    console.log('❌ AI validation failed, starting retry system...');
+                    console.log('Errors:', aiValidation.errors);
+                    
+                    try {
+                        layoutData = await executeRetry(userPrompt, aiValidation, scanResults, 1);
+                        showStatus('generationStatus', '✅ Retry successful! UI improved and validated.', 'success');
+                    } catch (retryError) {
+                        throw new Error(`AI validation and all retries failed: ${retryError.message}`);
+                    }
+                }
+                
                 lastGeneratedJSON = layoutData;
 
                 const debugSection = document.getElementById('jsonDebugSection');
