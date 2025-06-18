@@ -192,40 +192,87 @@ ${this.getUXPrinciples()}
 
 ${this.getJSONExamples(componentInfo)}`;
     }
-    buildPlatformContext(platform) {
-        console.log('🔍 Building platform context for:', platform);
-    if (platform === 'desktop') {
-        return `## 🖥️ DESKTOP PLATFORM CONTEXT
-        
+    buildPlatformContext(platform = 'mobile') {
+    console.log('🔍 Building mobile context for MVP');
+    
+    return `## 📱 MOBILE UX INTELLIGENCE SYSTEM
 
-**Target Device:** Desktop/laptop with mouse and keyboard
-**Screen Width:** 1200px+ (use wider layouts)
-**Interaction:** Mouse precision, hover states, right-click menus
-**Layout Philosophy:** Multi-column layouts, horizontal space utilization
-**Touch Targets:** Smaller elements acceptable (mouse precision)
-**Navigation:** Top navigation bars, sidebar menus, breadcrumbs
+**Target: Mobile MVP - Single Platform Focus**
+**Screen Width:** 360px (iPhone-sized, single column)
+**Interaction:** Thumb navigation, 44px+ touch targets
+**Philosophy:** One task at a time, vertical stacking, thumb-reachable actions
 
-**Desktop Layout Patterns:**
-- header-sidebar-content (admin panels)
-- header-2column (content + sidebar)  
-- header-3column (nav + content + sidebar)
-- dashboard-grid (cards in grid layout)`;
-    } else {
-        return `## 📱 MOBILE PLATFORM CONTEXT
+## 🎯 CORE MOBILE PATTERNS (MVP Priority Order):
 
-**Target Device:** Mobile phone with touch interface
-**Screen Width:** 360px (single column layouts)
-**Interaction:** Thumb navigation, touch targets, swipe gestures
-**Layout Philosophy:** Vertical stacking, one task at a time
-**Touch Targets:** Minimum 44px height for all interactive elements
-**Navigation:** Bottom tabs, hamburger menus, back buttons
+### 1. SETTINGS SCREEN (Highest Priority)
+**Pattern ID:** "settings-screen"
+**When to use:** User needs to view/change app preferences
+**Layout:** layout-header-content
+**Key principle:** Show current values using trailing-text
+**Example usage:** "notification settings", "account preferences", "app settings"
 
-**Mobile Layout Patterns:**
-- header-content (simple pages)
-- header-content-footer (with bottom navigation)
-- tab-content (tabbed interfaces)
-- modal-overlay (full-screen modals)`;
-    }
+### 2. ADD & CREATE (High Priority)  
+**Pattern ID:** "add-create-flow"
+**When to use:** User needs to input data or create content
+**Layout:** layout-header-content-footer (sticky submit button)
+**Key principle:** Progressive disclosure, full-width inputs
+**Example usage:** "create post", "add item", "new account"
+
+### 3. BROWSE & DISCOVER (High Priority)
+**Pattern ID:** "browse-discover-layout" 
+**When to use:** User needs to scan multiple items efficiently
+**Layout:** layout-header-content
+**Key principle:** Scannable cards/list-items, consistent spacing
+**Example usage:** "product list", "feed", "search results"
+
+### 4. HOME SCREEN (Medium Priority)
+**Pattern ID:** "home-screen"
+**When to use:** Main app dashboard, key information overview
+**Layout:** layout-bottom-nav OR layout-header-content
+**Key principle:** Hierarchy of information, quick actions
+**Example usage:** "dashboard", "main screen", "overview"
+
+### 5. SEARCH FLOW (Medium Priority)
+**Pattern ID:** "search-flow"
+**When to use:** User needs to find specific content
+**Layout:** layout-header-content
+**Key principle:** Multi-state (empty, searching, results)
+**Example usage:** "find products", "search contacts"
+
+## 🏗️ MOBILE SPATIAL LAYOUTS:
+
+**layout-header-content**: Default mobile layout (90% of screens)
+- Top app bar with title/actions + scrollable content area
+- Use for: settings, lists, forms, detail pages
+
+**layout-header-content-footer**: For primary actions (20% of screens)  
+- Adds sticky action bar at bottom for thumb access
+- Use for: forms with submit, multi-step flows, purchase flows
+
+**layout-bottom-nav**: For main app navigation (10% of screens)
+- 3-5 primary tabs at bottom + content area
+- Use for: main app sections, top-level navigation
+
+## 💡 MOBILE UX INTELLIGENCE RULES:
+
+1. **Current State Visibility**: Always show current values in settings
+   - Language setting → trailing-text: "English"
+   - Notifications → trailing-text: "On" or "Off"
+   - Account email → trailing-text: "john@email.com"
+
+2. **Thumb-Driven Design**: Primary actions at bottom or easily reachable
+   - Submit buttons → horizontalSizing: "FILL" + bottom placement
+   - Navigation → bottom tabs or easily tappable areas
+
+3. **Information Hierarchy**: Most important content first
+   - Settings: grouped logically, frequent items first
+   - Forms: required fields first, optional fields after
+   - Lists: primary info prominent, secondary info subtle
+
+4. **Touch Target Optimization**: Everything easily tappable
+   - List items → minimum 44px height
+   - Buttons → horizontalSizing: "FILL" for primary actions
+   - Navigation → large, clear tap areas`;
 }
 
     /**
@@ -606,219 +653,79 @@ Choose variants based on the DATA you need to display:
     /**
      * JSON structure guide with UX considerations
      */
-    getJSONStructureGuide() {
-    return `## JSON Structure & Rules:
+ getJSONStructureGuide() {
+    return `## MOBILE-FIRST JSON STRUCTURE (MVP):
 
-### Basic structure:
+### Standard Mobile JSON with Pattern Intelligence:
 \`\`\`json
 {
+  "mobilePattern": "settings-screen",
+  "spatialLayout": "layout-header-content",
+  "designReasoning": "Users need quick access to current settings",
   "layoutContainer": {
-    "name": "Container Name",
+    "name": "Settings Screen",
     "layoutMode": "VERTICAL",
     "width": 360,
     "paddingTop": 24,
-    "paddingBottom": 24,
+    "paddingBottom": 24, 
     "paddingLeft": 16,
     "paddingRight": 16,
     "itemSpacing": 16
   },
   "items": [
-    // ... components go here
+    // Mobile-optimized components here
   ]
 }
 \`\`\`
 
-### Platform-Specific Defaults:
-- **Mobile**: width: 360, padding: 16px, single column
-- **Desktop**: width: 1200, padding: 32px, multi-column possible
+## 📋 PATTERN SELECTION GUIDE:
 
-### Native vs Component Elements:
-- Use \`"type": "native-text"\` for custom text that needs specific styling
-- Use design system components when available (with componentNodeId)
-- Native elements should NOT have componentNodeId
+**When user says:** "settings", "preferences", "notifications", "account options"
+**Use pattern:** "settings-screen"
+**Use layout:** "layout-header-content"
+**Component strategy:** List-items with trailing text showing current values
 
-### 🎯 NATIVE vs COMPONENT ELEMENTS:
+**When user says:** "create", "add", "new", "post", "form"
+**Use pattern:** "add-create-flow"  
+**Use layout:** "layout-header-content-footer"
+**Component strategy:** Full-width inputs + sticky submit button
 
-**Use NATIVE elements for:**
-- Simple text that doesn't need design system styling
-- Basic shapes, dividers, or decorative elements
-- Custom layouts that don't exist in the design system
-- When you want full control over styling
+**When user says:** "list", "browse", "feed", "products", "search results"
+**Use pattern:** "browse-discover-layout"
+**Use layout:** "layout-header-content"
+**Component strategy:** Cards or list-items for scannable content
 
-**Use DESIGN SYSTEM COMPONENTS for:**
-- Interactive elements (buttons, inputs, cards)
-- Text that should match your design system typography
-- Complex UI patterns that exist in the design system
-- When consistency with the design system is important
+**When user says:** "dashboard", "home", "main screen", "overview"
+**Use pattern:** "home-screen"
+**Use layout:** "layout-header-content" or "layout-bottom-nav"
+**Component strategy:** Information hierarchy with quick actions
 
-### 📝 NATIVE ELEMENTS:
+## 🎯 MOBILE PATTERN EXAMPLES:
 
-#### Native Text:
+### Settings Screen Pattern:
 \`\`\`json
 {
-  "type": "native-text",
-  "properties": {
-    "content": "Welcome to our app",
-    "fontSize": 24,
-    "fontWeight": "bold",
-    "alignment": "center",
-    "horizontalSizing": "FILL"
-  }
-}
-\`\`\`
-
-#### Native Rectangle (for dividers, backgrounds):
-\`\`\`json
-{
-  "type": "native-rectangle",
-  "properties": {
-    "width": 200,
-    "height": 2,
-    "fill": { "r": 0.9, "g": 0.9, "b": 0.9 },
-    "cornerRadius": 1,
-    "horizontalSizing": "FILL"
-  }
-}
-\`\`\`
-
-#### Native Circle (for dots, indicators):
-\`\`\`json
-{
-  "type": "native-circle",
-  "properties": {
-    "width": 8,
-    "height": 8,
-    "fill": { "r": 0.2, "g": 0.6, "b": 1.0 }
-  }
-}
-\`\`\`
-
-### 🧩 COMPONENT ELEMENTS:
-
-#### Design System Text Component:
-\`\`\`json
-{
-  "type": "headline",
-  "componentNodeId": "10:123",
-  "properties": {
-    "text": "Welcome to our app",
-    "horizontalSizing": "FILL",
-    "variants": {
-      "Size": "Large",
-      "Weight": "Bold"
-    }
-  }
-}
-\`\`\`
-
-#### Design System Button:
-\`\`\`json
-{
-  "type": "button",
-  "componentNodeId": "10:456",
-  "properties": {
-    "text": "Get Started",
-    "horizontalSizing": "FILL",
-    "variants": {
-      "Type": "Primary",
-      "Size": "Large"
-    }
-  }
-}
-\`\`\`
-
-### 🎨 WHEN TO USE WHICH:
-
-**Use native-text when:**
-- Creating simple labels, descriptions, or body text
-- You need custom font sizes not available in your design system
-- Creating one-off text elements that don't need to be consistent
-
-**Use text components when:**
-- Creating headlines that should match your design system
-- Text that might have variants (sizes, weights, colors)
-- Text that should be consistent across your app
-
-**Use native shapes when:**
-- Creating simple dividers between sections
-- Adding decorative elements or icons
-- Creating custom indicators or status dots
-
-**Use design system components when:**
-- Creating interactive elements
-- Building standard UI patterns
-- Ensuring consistency with your brand
-
-### 🔧 NATIVE ELEMENT PROPERTIES:
-
-**Native Text Properties:**
-- \`content\`: The actual text content
-- \`fontSize\`: Size in pixels (16, 18, 24, etc.)
-- \`fontWeight\`: "normal", "bold"
-- \`alignment\`: "left", "center", "right"
-- \`horizontalSizing\`: "AUTO", "FILL"
-
-**Native Rectangle Properties:**
-- \`width\`, \`height\`: Dimensions in pixels
-- \`fill\`: Color object { r: 0-1, g: 0-1, b: 0-1 }
-- \`cornerRadius\`: Border radius in pixels
-- \`horizontalSizing\`: "AUTO", "FILL"
-
-**Native Circle Properties:**
-- \`width\`, \`height\`: Dimensions (same for perfect circle)
-- \`fill\`: Color object { r: 0-1, g: 0-1, b: 0-1 }
-
-### ✅ COMPLETE EXAMPLE WITH BOTH:
-
-\`\`\`json
-{
+  "mobilePattern": "settings-screen",
+  "spatialLayout": "layout-header-content",
+  "designReasoning": "Show current notification preferences clearly",
   "layoutContainer": {
-    "name": "Welcome Screen",
-    "layoutMode": "VERTICAL",
+    "name": "Notification Settings",
+    "layoutMode": "VERTICAL", 
     "width": 360,
-    "paddingTop": 32,
-    "paddingBottom": 32,
-    "paddingLeft": 24,
-    "paddingRight": 24,
-    "itemSpacing": 16
+    "itemSpacing": 8
   },
   "items": [
     {
-      "type": "native-text",
+      "type": "list-item",
+      "componentNodeId": "ACTUAL_ID_HERE",
       "properties": {
-        "content": "Welcome!",
-        "fontSize": 32,
-        "fontWeight": "bold",
-        "alignment": "center"
-      }
-    },
-    {
-      "type": "native-text",
-      "properties": {
-        "content": "Get started with our app and discover amazing features.",
-        "fontSize": 16,
-        "alignment": "center",
-        "horizontalSizing": "FILL"
-      }
-    },
-    {
-      "type": "native-rectangle",
-      "properties": {
-        "width": 50,
-        "height": 2,
-        "fill": { "r": 0.8, "g": 0.8, "b": 0.8 },
-        "cornerRadius": 1
-      }
-    },
-    {
-      "type": "button",
-      "componentNodeId": "ACTUAL_BUTTON_ID",
-      "properties": {
-        "text": "Get Started",
+        "text": "Push Notifications",
+        "trailing-text": "On",
         "horizontalSizing": "FILL",
         "variants": {
-          "Type": "Primary",
-          "Size": "Large"
+          "Condition": "1-line",
+          "Leading": "Icon",
+          "Trailing": "Icon"  
         }
       }
     }
@@ -826,7 +733,49 @@ Choose variants based on the DATA you need to display:
 }
 \`\`\`
 
-This approach gives you maximum flexibility while maintaining design system consistency where it matters most.`;
+### Add/Create Flow Pattern:
+\`\`\`json
+{
+  "mobilePattern": "add-create-flow",
+  "spatialLayout": "layout-header-content-footer", 
+  "designReasoning": "Simple form with thumb-reachable submit action",
+  "layoutContainer": {
+    "name": "Create Account",
+    "layoutMode": "VERTICAL",
+    "width": 360,
+    "itemSpacing": 16
+  },
+  "items": [
+    {
+      "type": "input",
+      "componentNodeId": "ACTUAL_ID_HERE",
+      "properties": {
+        "text": "Email Address",
+        "horizontalSizing": "FILL"
+      }
+    },
+    {
+      "type": "button", 
+      "componentNodeId": "ACTUAL_ID_HERE",
+      "properties": {
+        "text": "Create Account",
+        "horizontalSizing": "FILL",
+        "variants": {
+          "Type": "Primary"
+        }
+      }
+    }
+  ]
+}
+\`\`\`
+
+## ✅ MOBILE MVP SUCCESS CRITERIA:
+- All layouts use 360px width (mobile-first)
+- Primary actions are thumb-reachable 
+- Settings show current values clearly
+- Forms have full-width inputs and sticky submit buttons
+- Content is scannable top-to-bottom
+- Touch targets are 44px+ minimum`;
 }
 
     /**
