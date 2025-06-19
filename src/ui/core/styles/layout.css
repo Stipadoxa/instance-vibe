@@ -1,0 +1,298 @@
+/* ==================== PLATFORM TOGGLE LAYOUT ==================== */
+.platform-toggle-container {
+    margin-bottom: var(--space-lg);
+}
+
+.toggle-label {
+    display: block;
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-md);
+    margin-bottom: var(--space-sm);
+    color: var(--text-primary);
+}
+
+.toggle-buttons {
+    display: flex;
+    gap: var(--space-sm);
+    border-radius: var(--radius-base);
+    background: var(--bg-secondary);
+    padding: var(--space-xs);
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: var(--space-sm) var(--space-lg);
+    border: 1px solid var(--border-secondary);
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    color: var(--text-secondary);
+    text-align: center;
+    position: relative;
+}
+
+.toggle-btn:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    border-color: var(--border-primary);
+}
+
+.toggle-btn.active {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.toggle-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+}
+
+.toggle-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* ==================== CONFIDENCE BADGE LAYOUT ==================== */
+.confidence-badge {
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    min-width: 45px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.confidence-high {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+    border: 1px solid var(--color-success-border);
+}
+
+.confidence-medium {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+    border: 1px solid var(--color-warning-border);
+}
+
+.confidence-low {
+    background: var(--color-error-bg);
+    color: var(--color-error-text);
+    border: 1px solid var(--color-error-border);
+}
+
+.confidence-verified {
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+    border: 1px solid var(--color-info-border);
+}
+
+/* ==================== STATUS ICON LAYOUT ==================== */
+.status-icon {
+    font-size: var(--font-size-sm);
+    margin-right: var(--space-xs);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+}
+
+.icon-verified {
+    color: var(--color-success);
+}
+
+.icon-auto {
+    color: var(--color-primary);
+}
+
+.icon-unknown {
+    color: var(--color-error);
+}
+
+/* ==================== PAGE INFO LAYOUT ==================== */
+.page-info {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    margin-left: var(--space-sm);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.page-info::before {
+    content: "📄";
+    font-size: var(--font-size-xs);
+}
+
+/* ==================== CURRENT FILE BADGE ==================== */
+.current-file-badge {
+    background: var(--color-success);
+    color: var(--text-inverse);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    margin-left: var(--space-sm);
+}
+
+/* ==================== UTILITY LAYOUT CLASSES ==================== */
+.hidden {
+    display: none !important;
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.flex {
+    display: flex;
+}
+
+.flex-column {
+    flex-direction: column;
+}
+
+.flex-1 {
+    flex: 1;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.justify-center {
+    justify-content: center;
+}
+
+.gap-sm {
+    gap: var(--space-sm);
+}
+
+.gap-md {
+    gap: var(--space-md);
+}
+
+.gap-lg {
+    gap: var(--space-lg);
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.w-full {
+    width: 100%;
+}
+
+.h-full {
+    height: 100%;
+}
+
+.overflow-hidden {
+    overflow: hidden;
+}
+
+.overflow-auto {
+    overflow: auto;
+}
+
+.relative {
+    position: relative;
+}
+
+.absolute {
+    position: absolute;
+}
+
+/* ==================== ACCESSIBILITY IMPROVEMENTS ==================== */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .tab-btn.active {
+        outline: 2px solid currentColor;
+        outline-offset: -2px;
+    }
+    
+    .btn:focus-visible,
+    .toggle-btn:focus-visible {
+        outline: 3px solid currentColor;
+    }
+    
+    .component-item:hover {
+        outline: 1px solid currentColor;
+    }
+}
+
+/* Dark mode adjustments for layout elements */
+@media (prefers-color-scheme: dark) {
+    .image-upload-area {
+        border-color: var(--border-primary);
+    }
+    
+    .image-upload-area:hover {
+        border-color: var(--color-primary);
+    }
+    
+    .json-output {
+        background: var(--bg-quaternary, var(--bg-tertiary));
+    }
+}
+
+/* ==================== PRINT STYLES ==================== */
+@media print {
+    .tab-nav,
+    .context-bar,
+    .button-row,
+    .session-modal,
+    .filter-bar {
+        display: none !important;
+    }
+    
+    .tab-content {
+        display: block !important;
+        padding: 0;
+        overflow: visible;
+    }
+    
+    .component-list {
+        border: none;
+        overflow: visible;
+        min-height: auto;
+    }
+    
+    .component-item {
+        break-inside: avoid;
+        border-bottom: 1px solid #ccc;
+    }
+}

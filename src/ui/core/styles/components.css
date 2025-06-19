@@ -1,0 +1,637 @@
+/* src/ui/styles/components.css */
+/* Reusable UI component styles for AIDesigner */
+
+/* ==================== BUTTONS ==================== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-primary);
+    color: var(--text-inverse);
+    border: none;
+    padding: var(--space-sm) var(--space-lg);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-medium);
+    line-height: 1;
+    text-decoration: none;
+    transition: all var(--transition-base) var(--ease-in-out);
+    width: 100%;
+    margin-bottom: var(--space-sm);
+    min-height: 32px;
+}
+
+.btn:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-base);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn:disabled {
+    background: var(--color-primary-disabled);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* Button variants */
+.btn-secondary {
+    background: var(--color-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-secondary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--color-secondary-hover);
+    border-color: var(--color-primary);
+}
+
+.btn-success {
+    background: var(--color-success);
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #218838;
+}
+
+.btn-error {
+    background: var(--color-error);
+}
+
+.btn-error:hover:not(:disabled) {
+    background: #c82333;
+}
+
+.btn-warning {
+    background: var(--color-warning);
+    color: var(--text-primary);
+}
+
+.btn-warning:hover:not(:disabled) {
+    background: #e0a800;
+}
+
+/* Button sizes */
+.btn-small {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-size-sm);
+    width: auto;
+    margin: 0 var(--space-xs) 0 0;
+    min-height: 24px;
+}
+
+.btn-large {
+    padding: var(--space-md) var(--space-xl);
+    font-size: var(--font-size-lg);
+    min-height: 40px;
+}
+
+/* Button groups */
+.btn-group {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.btn-group .btn {
+    margin-bottom: 0;
+}
+
+/* Icon buttons */
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: var(--radius-base);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-icon-small {
+    width: 24px;
+    height: 24px;
+    font-size: var(--font-size-sm);
+}
+
+/* ==================== FORM COMPONENTS ==================== */
+.input-group {
+    margin-bottom: var(--space-md);
+}
+
+.input-group label {
+    display: block;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--space-xs);
+    color: var(--text-primary);
+}
+
+.input-group input,
+.input-group textarea,
+.input-group select {
+    width: 100%;
+    padding: var(--space-sm);
+    border: 1px solid var(--border-secondary);
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-md);
+    font-family: inherit;
+    transition: border-color var(--transition-base);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.input-group input:focus,
+.input-group textarea:focus,
+.input-group select:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 2px rgba(3, 102, 214, 0.2);
+}
+
+.input-group input:disabled,
+.input-group textarea:disabled,
+.input-group select:disabled {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+.input-group textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+}
+
+.input-group select {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 8px center;
+    background-repeat: no-repeat;
+    background-size: 16px 12px;
+    padding-right: 32px;
+}
+
+/* Input validation states */
+.input-group.error input,
+.input-group.error textarea,
+.input-group.error select {
+    border-color: var(--color-error);
+}
+
+.input-group.success input,
+.input-group.success textarea,
+.input-group.success select {
+    border-color: var(--color-success);
+}
+
+.input-group .help-text {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-top: var(--space-xs);
+}
+
+.input-group .error-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-error-text);
+    margin-top: var(--space-xs);
+}
+
+/* ==================== STATUS MESSAGES ==================== */
+.status {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-base);
+    margin-bottom: var(--space-md);
+    border: 1px solid transparent;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+}
+
+.status.success {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+    border-color: var(--color-success-border);
+}
+
+.status.error {
+    background: var(--color-error-bg);
+    color: var(--color-error-text);
+    border-color: var(--color-error-border);
+}
+
+.status.warning {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+    border-color: var(--color-warning-border);
+}
+
+.status.info {
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+    border-color: var(--color-info-border);
+}
+
+/* ==================== TOGGLE COMPONENTS ==================== */
+.toggle-container {
+    margin-bottom: var(--space-lg);
+}
+
+.toggle-label {
+    display: block;
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-md);
+    margin-bottom: var(--space-sm);
+    color: var(--text-primary);
+}
+
+.toggle-buttons {
+    display: flex;
+    gap: var(--space-sm);
+    background: var(--bg-secondary);
+    padding: var(--space-xs);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-primary);
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: var(--space-sm) var(--space-lg);
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-base) var(--ease-in-out);
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.toggle-btn:hover:not(:disabled) {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border-color: var(--border-secondary);
+}
+
+.toggle-btn.active {
+    background: var(--bg-primary);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+    box-shadow: var(--shadow-sm);
+}
+
+.toggle-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    color: var(--text-muted);
+}
+
+/* ==================== CARD COMPONENTS ==================== */
+.card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow var(--transition-base);
+}
+
+.card:hover {
+    box-shadow: var(--shadow-base);
+}
+
+.card-header {
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.card-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.card-subtitle {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+    margin: var(--space-xs) 0 0 0;
+}
+
+.card-body {
+    color: var(--text-primary);
+}
+
+.card-footer {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-primary);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+}
+
+/* ==================== MODAL COMPONENTS ==================== */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--z-modal);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-lg);
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-overlay);
+    z-index: var(--z-modal-backdrop);
+}
+
+.modal-content {
+    position: relative;
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xxl);
+    max-width: 480px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-xl);
+    z-index: var(--z-modal);
+    animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-header {
+    margin-bottom: var(--space-lg);
+}
+
+.modal-header h3 {
+    margin: 0 0 var(--space-sm) 0;
+    font-size: var(--font-size-xl);
+    color: var(--text-primary);
+}
+
+.modal-header p {
+    margin: 0;
+    font-size: var(--font-size-md);
+    color: var(--text-secondary);
+}
+
+.modal-body {
+    margin-bottom: var(--space-lg);
+}
+
+.modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.modal-actions .btn {
+    margin-bottom: 0;
+}
+
+/* ==================== BADGE COMPONENTS ==================== */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px var(--space-xs);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    min-width: 20px;
+    text-align: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.badge-success {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+}
+
+.badge-error {
+    background: var(--color-error-bg);
+    color: var(--color-error-text);
+}
+
+.badge-warning {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+}
+
+.badge-info {
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+}
+
+.badge-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+/* ==================== LOADING COMPONENTS ==================== */
+.loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-primary);
+    border-top: 2px solid var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-right: var(--space-sm);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-dots {
+    display: inline-flex;
+    gap: 2px;
+}
+
+.loading-dots::after {
+    content: '...';
+    animation: dots 1.4s infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+}
+
+/* ==================== PROGRESS COMPONENTS ==================== */
+.progress {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-base);
+    overflow: hidden;
+    margin: var(--space-sm) 0;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--color-primary);
+    transition: width var(--transition-base) var(--ease-in-out);
+    border-radius: var(--radius-base);
+}
+
+.progress-bar.success {
+    background: var(--color-success);
+}
+
+.progress-bar.error {
+    background: var(--color-error);
+}
+
+.progress-bar.warning {
+    background: var(--color-warning);
+}
+
+/* ==================== TOOLTIP COMPONENTS ==================== */
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltip-text {
+    visibility: hidden;
+    width: max-content;
+    max-width: 200px;
+    background: var(--text-primary);
+    color: var(--text-inverse);
+    text-align: center;
+    border-radius: var(--radius-base);
+    padding: var(--space-xs) var(--space-sm);
+    position: absolute;
+    z-index: var(--z-tooltip);
+    bottom: 125%;
+    left: 50%;
+    margin-left: -60px;
+    opacity: 0;
+    transition: opacity var(--transition-base);
+    font-size: var(--font-size-sm);
+    box-shadow: var(--shadow-base);
+}
+
+.tooltip .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: var(--text-primary) transparent transparent transparent;
+}
+
+.tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* ==================== LIST COMPONENTS ==================== */
+.list {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-base);
+    overflow: hidden;
+}
+
+.list-item {
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--border-primary);
+    transition: background-color var(--transition-base);
+    cursor: pointer;
+}
+
+.list-item:last-child {
+    border-bottom: none;
+}
+
+.list-item:hover {
+    background: var(--bg-secondary);
+}
+
+.list-item.active {
+    background: var(--color-info-bg);
+    border-color: var(--color-info);
+}
+
+/* ==================== SEPARATOR ==================== */
+.separator {
+    height: 1px;
+    background: var(--border-primary);
+    margin: var(--space-lg) 0;
+    border: none;
+}
+
+.separator.vertical {
+    width: 1px;
+    height: auto;
+    margin: 0 var(--space-lg);
+}
+
+/* ==================== RESPONSIVE COMPONENTS ==================== */
+@media (max-width: 768px) {
+    .modal-content {
+        margin: var(--space-lg);
+        padding: var(--space-lg);
+        max-width: none;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+    }
+    
+    .btn-group .btn {
+        width: 100%;
+    }
+    
+    .toggle-buttons {
+        flex-direction: column;
+        padding: var(--space-xs);
+    }
+}

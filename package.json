@@ -2,14 +2,15 @@
   "name": "my-first-plugin",
   "version": "1.0.0",
   "description": "Your Figma Plugin",
-  "main": "code.js",
-  "scripts": {
-    "build": "node build.js",
-    "lint": "eslint --ext .ts,.tsx --ignore-pattern node_modules .",
-    "lint:fix": "eslint --ext .ts,.tsx --ignore-pattern node_modules --fix .",
-    "watch": "node build.js --watch"
-  },
-  "author": "",
+"main": "code.js",
+"scripts": {
+  "build": "node build.js",
+  "lint": "eslint --ext .ts,.tsx --ignore-pattern node_modules .",
+  "lint:fix": "eslint --ext .ts,.tsx --ignore-pattern node_modules --fix .",
+  "watch": "node build.js --watch",
+  "test-build": "node test-build.js"
+},
+"author": "",
   "license": "",
   "devDependencies": {
     "@figma/eslint-plugin-figma-plugins": "*",
