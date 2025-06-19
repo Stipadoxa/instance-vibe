@@ -1,7 +1,12 @@
-// code.ts - MAIN PLUGIN FILE WITH MODULAR IMPORTS
+// code.ts - COMPLETE MODULAR VERSION WITH VALIDATION ENGINE
 import { SessionManager, SessionState, ComponentInfo } from './src/core/session-manager';
 import { ComponentScanner, ScanSession } from './src/core/component-scanner';
 import { FigmaRenderer } from './src/core/figma-renderer';
+import { GeminiAPI, GeminiRequest } from './src/ai/gemini-api';
+import { ValidationEngine, ValidationResult } from './src/core/validation-engine';
+
+// Global validation engine instance
+let validationEngine: ValidationEngine;
 
 async function navigateToComponent(componentId: string, pageName?: string): Promise<void> {
     try {
@@ -26,11 +31,93 @@ async function navigateToComponent(componentId: string, pageName?: string): Prom
     }
 }
 
-// MODIFIED: initializeSession з підтримкою сесій
+// ENHANCED: API-driven UI generation with validation
+async function generateUIFromAPI(prompt: string, systemPrompt: string, enableValidation: boolean = true): Promise<{
+  layoutData: any;
+  validationResult?: ValidationResult;
+  finalJSON: string;
+  retryCount: number;
+}> {
+    try {
+        const geminiAPI = await GeminiAPI.createFromStorage();
+        if (!geminiAPI) {
+            throw new Error("No API key found. Please configure your Gemini API key first.");
+        }
+
+        const request: GeminiRequest = {
+            prompt,
+            systemPrompt,
+            temperature: 0.7
+        };
+
+        console.log("🤖 Calling Gemini API for UI generation...");
+        const response = await geminiAPI.generateJSON(request);
+
+        if (!response.success) {
+            throw new Error(response.error || "API call failed");
+        }
+
+        if (!response.content) {
+            throw new Error("No content received from API");
+        }
+
+        let finalJSON = response.content;
+        let validationResult: ValidationResult | undefined;
+        let retryCount = 0;
+
+        // Validate and potentially retry
+        if (enableValidation && validationEngine) {
+            console.log("🔍 Validating generated JSON...");
+            const validationData = await validationEngine.validateWithRetry(
+                response.content, 
+                prompt, 
+                geminiAPI
+            );
+            
+            validationResult = validationData.result;
+            finalJSON = validationData.finalJSON;
+            retryCount = validationData.retryCount;
+            
+            console.log(`📊 Validation complete: ${validationEngine.getValidationSummary(validationResult)}`);
+            
+            // Notify user about validation
+            if (validationResult.isValid) {
+                if (retryCount > 0) {
+                    figma.notify(`✅ Generated with ${retryCount} auto-fixes applied`, { timeout: 3000 });
+                }
+            } else {
+                const summary = validationEngine.getValidationSummary(validationResult);
+                figma.notify(`⚠️ ${summary}`, { timeout: 4000 });
+            }
+        }
+
+        // Parse final JSON
+        const layoutData = JSON.parse(finalJSON);
+        
+        return { layoutData, validationResult, finalJSON, retryCount };
+
+    } catch (error) {
+        console.error("❌ API-driven generation failed:", error);
+        throw error;
+    }
+}
+
+// MODIFIED: initializeSession with validation engine
 async function initializeSession() {
   console.log("🔄 Ініціалізація сесії...");
   
   try {
+    // Initialize validation engine
+    validationEngine = new ValidationEngine({
+      enableAIValidation: true,
+      enableStructuralValidation: true,
+      enableComponentValidation: true,
+      qualityThreshold: 0.7,
+      maxRetries: 2,
+      autoFixEnabled: true
+    });
+    console.log("✅ Validation engine initialized");
+    
     // Очистити старі сесії
     await SessionManager.cleanupOldSessions();
     
@@ -109,6 +196,29 @@ async function main() {
             }
             break;
 
+        // ENHANCED: API-driven UI generation with validation
+        case 'generate-ui-from-prompt':
+            try {
+                const { prompt, systemPrompt, enableValidation = true } = msg.payload;
+                const generationResult = await generateUIFromAPI(prompt, systemPrompt, enableValidation);
+                const newFrame = await FigmaRenderer.generateUIFromDataDynamic(generationResult.layoutData);
+                
+                if (newFrame) {
+                    figma.ui.postMessage({ 
+                        type: 'ui-generated-success', 
+                        frameId: newFrame.id, 
+                        generatedJSON: generationResult.layoutData,
+                        validationResult: generationResult.validationResult,
+                        retryCount: generationResult.retryCount
+                    });
+                }
+            } catch (e: any) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                figma.notify("API generation error: " + errorMessage, { error: true });
+                figma.ui.postMessage({ type: 'ui-generation-error', error: errorMessage });
+            }
+            break;
+
         case 'modify-existing-ui':
             try {
                 const { modifiedJSON, frameId } = msg.payload;
@@ -124,6 +234,144 @@ async function main() {
                 const errorMessage = e instanceof Error ? e.message : String(e);
                 figma.notify("Modification error: " + errorMessage, { error: true });
                 figma.ui.postMessage({ type: 'ui-generation-error', error: errorMessage });
+            }
+            break;
+
+        // ENHANCED: API-driven UI modification with validation
+        case 'modify-ui-from-prompt':
+            try {
+                const { originalJSON, modificationRequest, systemPrompt, frameId, enableValidation = true } = msg.payload;
+                
+                const geminiAPI = await GeminiAPI.createFromStorage();
+                if (!geminiAPI) {
+                    throw new Error("No API key configured");
+                }
+
+                console.log("🔄 Modifying UI with API...");
+                const response = await geminiAPI.modifyExistingUI(originalJSON, modificationRequest, systemPrompt);
+                
+                if (!response.success) {
+                    throw new Error(response.error || "API modification failed");
+                }
+
+                let finalJSON = response.content || "{}";
+                let validationResult: ValidationResult | undefined;
+                let retryCount = 0;
+
+                // Validate modification
+                if (enableValidation && validationEngine) {
+                    console.log("🔍 Validating modified JSON...");
+                    const validationData = await validationEngine.validateWithRetry(
+                        finalJSON, 
+                        modificationRequest, 
+                        geminiAPI
+                    );
+                    
+                    validationResult = validationData.result;
+                    finalJSON = validationData.finalJSON;
+                    retryCount = validationData.retryCount;
+                    
+                    console.log(`📊 Modification validation: ${validationEngine.getValidationSummary(validationResult)}`);
+                }
+
+                const modifiedJSON = JSON.parse(finalJSON);
+                const modifiedFrame = await FigmaRenderer.modifyExistingUI(modifiedJSON, frameId);
+                
+                if (modifiedFrame) {
+                    figma.ui.postMessage({ 
+                        type: 'ui-modified-success', 
+                        frameId: modifiedFrame.id, 
+                        modifiedJSON: modifiedJSON,
+                        validationResult: validationResult,
+                        retryCount: retryCount
+                    });
+                }
+            } catch (e: any) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                figma.notify("API modification error: " + errorMessage, { error: true });
+                figma.ui.postMessage({ type: 'ui-generation-error', error: errorMessage });
+            }
+            break;
+
+        // NEW: Standalone JSON validation
+        case 'validate-json':
+            try {
+                const { jsonString, originalPrompt } = msg.payload;
+                
+                if (!validationEngine) {
+                    throw new Error("Validation engine not initialized");
+                }
+                
+                const validationResult = await validationEngine.validateJSON(jsonString, originalPrompt);
+                const summary = validationEngine.getValidationSummary(validationResult);
+                
+                figma.ui.postMessage({ 
+                    type: 'validation-result', 
+                    result: validationResult,
+                    summary: summary
+                });
+                
+                figma.notify(summary, { 
+                    timeout: 3000,
+                    error: !validationResult.isValid 
+                });
+                
+            } catch (e: any) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                figma.notify("Validation error: " + errorMessage, { error: true });
+                figma.ui.postMessage({ type: 'validation-error', error: errorMessage });
+            }
+            break;
+
+        // NEW: Update validation settings
+        case 'update-validation-config':
+            try {
+                const newConfig = msg.payload;
+                if (validationEngine) {
+                    validationEngine.updateConfig(newConfig);
+                    figma.ui.postMessage({ type: 'validation-config-updated' });
+                    figma.notify("Validation settings updated", { timeout: 2000 });
+                }
+            } catch (e: any) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                figma.notify("Config update error: " + errorMessage, { error: true });
+            }
+            break;
+
+        // Test API connection
+        case 'test-api-connection':
+            try {
+                const geminiAPI = await GeminiAPI.createFromStorage();
+                if (!geminiAPI) {
+                    figma.ui.postMessage({ 
+                        type: 'api-test-result', 
+                        success: false, 
+                        error: "No API key found" 
+                    });
+                    return;
+                }
+
+                console.log("🧪 Testing API connection...");
+                const isConnected = await geminiAPI.testConnection();
+                
+                figma.ui.postMessage({ 
+                    type: 'api-test-result', 
+                    success: isConnected,
+                    error: isConnected ? null : "Connection test failed"
+                });
+                
+                if (isConnected) {
+                    figma.notify("✅ API connection successful!", { timeout: 2000 });
+                } else {
+                    figma.notify("❌ API connection failed", { error: true });
+                }
+            } catch (e: any) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                figma.ui.postMessage({ 
+                    type: 'api-test-result', 
+                    success: false, 
+                    error: errorMessage 
+                });
             }
             break;
 
@@ -183,7 +431,6 @@ async function main() {
 
         case 'save-current-session':
             try {
-                // This will be called from UI when designState changes
                 await SessionManager.saveSession(msg.payload.designState, msg.payload.scanData);
             } catch (error) {
                 console.error("❌ Error saving session:", error);
@@ -297,7 +544,7 @@ async function main() {
             // Ignore unknown messages
     }
   };
-  console.log("✅ Plugin fully initialized");
+  console.log("✅ Plugin fully initialized with complete modular architecture");
 }
 
 main().catch(err => {
