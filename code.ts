@@ -1,9 +1,11 @@
-// code.ts - COMPLETE MODULAR VERSION WITH VALIDATION ENGINE
+// code.ts - COMPLETE MODULAR VERSION WITH VALIDATION ENGINE AND SEMANTIC MAPPING
 import { SessionManager, SessionState, ComponentInfo } from './src/core/session-manager';
 import { ComponentScanner, ScanSession } from './src/core/component-scanner';
 import { FigmaRenderer } from './src/core/figma-renderer';
 import { GeminiAPI, GeminiRequest } from './src/ai/gemini-api';
 import { ValidationEngine, ValidationResult } from './src/core/validation-engine';
+import { SemanticMapper, ComponentSemantics } from './src/core/semantic-mapper';
+import { ComponentScannerEnhanced } from './src/core/component-scanner-enhanced';
 
 // Global validation engine instance
 let validationEngine: ValidationEngine;
@@ -341,12 +343,27 @@ async function main() {
         // Test API connection
         case 'test-api-connection':
             try {
+                console.log("🧪 Starting API connection test...");
+                
+                // Check if API key exists
+                const apiKey = await figma.clientStorage.getAsync('geminiApiKey');
+                if (!apiKey) {
+                    figma.ui.postMessage({ 
+                        type: 'api-test-result', 
+                        success: false, 
+                        error: "No API key found in storage" 
+                    });
+                    return;
+                }
+                
+                console.log("🔑 API key found, length:", apiKey.length);
+                
                 const geminiAPI = await GeminiAPI.createFromStorage();
                 if (!geminiAPI) {
                     figma.ui.postMessage({ 
                         type: 'api-test-result', 
                         success: false, 
-                        error: "No API key found" 
+                        error: "Failed to create Gemini API instance" 
                     });
                     return;
                 }
@@ -354,19 +371,22 @@ async function main() {
                 console.log("🧪 Testing API connection...");
                 const isConnected = await geminiAPI.testConnection();
                 
+                console.log("🔌 Connection test result:", isConnected);
+                
                 figma.ui.postMessage({ 
                     type: 'api-test-result', 
                     success: isConnected,
-                    error: isConnected ? null : "Connection test failed"
+                    error: isConnected ? null : "API connection test returned false - check API key validity"
                 });
                 
                 if (isConnected) {
                     figma.notify("✅ API connection successful!", { timeout: 2000 });
                 } else {
-                    figma.notify("❌ API connection failed", { error: true });
+                    figma.notify("❌ API connection failed - check API key", { error: true });
                 }
             } catch (e: any) {
                 const errorMessage = e instanceof Error ? e.message : String(e);
+                console.error("❌ API test error:", errorMessage);
                 figma.ui.postMessage({ 
                     type: 'api-test-result', 
                     success: false, 

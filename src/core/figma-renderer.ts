@@ -2,6 +2,7 @@
 // UI generation and rendering engine for AIDesigner
 
 import { ComponentScanner } from './component-scanner';
+import { ComponentScannerEnhanced } from './component-scanner-enhanced';
 
 export interface RenderOptions {
   parentNode?: FrameNode | PageNode;
@@ -29,24 +30,55 @@ export class FigmaRenderer {
     
     if (containerData && containerData !== layoutData) {
       currentFrame.name = containerData.name || "Generated Frame";
-      currentFrame.layoutMode = containerData.layoutMode === "HORIZONTAL" || containerData.layoutMode === "VERTICAL" 
-        ? containerData.layoutMode : "NONE";
+      
+      // Enhanced layout mode parsing - case insensitive and more robust
+      const layoutMode = (containerData.layoutMode || "").toString().toUpperCase();
+      if (layoutMode === "HORIZONTAL" || layoutMode === "VERTICAL") {
+        currentFrame.layoutMode = layoutMode as "HORIZONTAL" | "VERTICAL";
+        console.log(`✅ Set auto-layout mode: ${layoutMode}`);
+      } else {
+        // Default to VERTICAL for mobile layouts if not specified
+        currentFrame.layoutMode = "VERTICAL";
+        console.log(`✅ Defaulted to VERTICAL auto-layout (original value: "${containerData.layoutMode}")`);
+      }
         
+      // Always set up auto-layout properties when we have a layout mode
       if (currentFrame.layoutMode !== 'NONE') {
-        currentFrame.paddingTop = typeof containerData.paddingTop === 'number' ? containerData.paddingTop : 0;
-        currentFrame.paddingBottom = typeof containerData.paddingBottom === 'number' ? containerData.paddingBottom : 0;
-        currentFrame.paddingLeft = typeof containerData.paddingLeft === 'number' ? containerData.paddingLeft : 0;
-        currentFrame.paddingRight = typeof containerData.paddingRight === 'number' ? containerData.paddingRight : 0;
-        currentFrame.itemSpacing = typeof containerData.itemSpacing === 'number' ? containerData.itemSpacing : 0;
+        currentFrame.paddingTop = typeof containerData.paddingTop === 'number' ? containerData.paddingTop : 16;
+        currentFrame.paddingBottom = typeof containerData.paddingBottom === 'number' ? containerData.paddingBottom : 16;
+        currentFrame.paddingLeft = typeof containerData.paddingLeft === 'number' ? containerData.paddingLeft : 16;
+        currentFrame.paddingRight = typeof containerData.paddingRight === 'number' ? containerData.paddingRight : 16;
+        currentFrame.itemSpacing = typeof containerData.itemSpacing === 'number' ? containerData.itemSpacing : 12;
         currentFrame.primaryAxisSizingMode = "AUTO";
+        
+        console.log(`✅ Auto-layout configured: padding ${currentFrame.paddingTop}, spacing ${currentFrame.itemSpacing}`);
       }
       
-      if (containerData.width) {
+      // Set frame dimensions
+      if (containerData.width && typeof containerData.width === 'number') {
         currentFrame.resize(containerData.width, currentFrame.height);
         currentFrame.counterAxisSizingMode = "FIXED";
+        console.log(`✅ Set fixed width: ${containerData.width}px`);
       } else {
-        currentFrame.counterAxisSizingMode = "AUTO";
+        // For mobile layouts, default to 375px width with auto height
+        currentFrame.resize(375, currentFrame.height);
+        currentFrame.counterAxisSizingMode = "FIXED";
+        console.log(`✅ Set default mobile width: 375px`);
       }
+    } else {
+      // Fallback: ensure we always have auto-layout for UI generation
+      console.log(`⚠️ No container data found, setting up default auto-layout`);
+      currentFrame.name = "Generated Frame";
+      currentFrame.layoutMode = "VERTICAL";
+      currentFrame.paddingTop = 16;
+      currentFrame.paddingBottom = 16;
+      currentFrame.paddingLeft = 16;
+      currentFrame.paddingRight = 16;
+      currentFrame.itemSpacing = 12;
+      currentFrame.primaryAxisSizingMode = "AUTO";
+      currentFrame.counterAxisSizingMode = "FIXED";
+      currentFrame.resize(375, currentFrame.height);
+      console.log(`✅ Applied default auto-layout configuration`);
     }
     
     const items = layoutData.items || containerData.items;
@@ -221,10 +253,10 @@ export class FigmaRenderer {
         } 
         else if (item.type !== 'frame') {
           if (!item.componentNodeId || isPlaceholderID(item.componentNodeId)) {
-            console.log(`🔧 Resolving component ID for type: ${item.type}`);
-            const resolvedId = await ComponentScanner.getComponentIdByType(item.type);
+            console.log(`🧠 Intelligent semantic lookup for type: ${item.type}`);
+            const resolvedId = await ComponentScannerEnhanced.getComponentIdByType(item.type);
             if (!resolvedId) {
-              throw new Error(`Component for type "${item.type}" not found in design system. Please scan your design system first.`);
+              throw new Error(`Component for type "${item.type}" not found in design system. Please scan your design system first or check component naming.`);
             }
             item.componentNodeId = resolvedId;
             console.log(`✅ Resolved ${item.type} -> ${resolvedId}`);

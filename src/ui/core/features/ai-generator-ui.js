@@ -1,9 +1,9 @@
 // src/ui/features/ai-generator-ui.js
 // AI Generator UI functionality for AIDesigner
 
-import { MessageHandler } from '../core/message-handler.js';
-import { UIFramework } from '../core/ui-framework.js';
-import { StateManager } from '../core/state-manager.js';
+import { MessageHandler } from '../message-handler.js';
+import { UIFramework } from '../ui-framework.js';
+import { StateManager } from '../state-manager.js';
 
 export class AIGeneratorUI {
     constructor() {
