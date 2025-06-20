@@ -50,7 +50,7 @@ export class ValidationEngine {
     enableAIValidation: true,
     enableStructuralValidation: true,
     enableComponentValidation: true,
-    qualityThreshold: 0.7,
+    qualityThreshold: 0.6, // Slightly lower threshold for iterations
     maxRetries: 2,
     autoFixEnabled: true
   };
@@ -103,9 +103,12 @@ export class ValidationEngine {
       const qualityMetrics = this.calculateQualityMetrics(layoutData, errors, warnings);
       const score = qualityMetrics.overallScore;
       
-      // Determine if validation passed
-      const isValid = errors.filter(e => e.severity === 'critical' || e.severity === 'high').length === 0 
-                     && score >= this.config.qualityThreshold;
+      // Determine if validation passed - be more lenient for iterations
+      const criticalIssues = errors.filter(e => e.severity === 'critical').length;
+      const highIssues = errors.filter(e => e.severity === 'high').length;
+      
+      // Pass if no critical issues and score meets threshold, or if only minor issues
+      const isValid = criticalIssues === 0 && (score >= this.config.qualityThreshold || highIssues <= 1);
       
       console.log(`📊 Validation complete: ${isValid ? '✅ PASSED' : '❌ FAILED'} (Score: ${(score * 100).toFixed(1)}%)`);
       

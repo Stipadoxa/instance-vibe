@@ -2,7 +2,7 @@
 // Main application bootstrap for AIDesigner UI
 
 // Import AI Generator UI
-import { AIGeneratorUI } from '../features/ai-generator-ui.js';
+import { AIGeneratorUI } from './features/ai-generator-ui.js';
 
 class AIDesignerApp {
     constructor() {
@@ -191,10 +191,12 @@ class AIDesignerApp {
      * Initialize API settings feature
      */
     initializeApiSettings() {
-        if (window.ApiSettingsFeature) {
-            const apiSettings = new window.ApiSettingsFeature(this.stateManager, this.messageHandler);
+        if (window.APISettingsUI) {
+            const apiSettings = new window.APISettingsUI();
             this.features.set('apiSettings', apiSettings);
-            apiSettings.initialize();
+            console.log('✅ API Settings UI initialized');
+        } else {
+            console.warn('⚠️ APISettingsUI not available');
         }
     }
     
@@ -202,10 +204,12 @@ class AIDesignerApp {
      * Initialize design system feature
      */
     initializeDesignSystem() {
-        if (window.DesignSystemFeature) {
-            const designSystem = new window.DesignSystemFeature(this.stateManager, this.messageHandler);
+        if (window.DesignSystemUI) {
+            const designSystem = new window.DesignSystemUI();
             this.features.set('designSystem', designSystem);
-            designSystem.initialize();
+            console.log('✅ Design System UI initialized');
+        } else {
+            console.warn('⚠️ DesignSystemUI not available');
         }
     }
     

@@ -39,9 +39,9 @@ export interface APIError {
 export class GeminiAPI {
   private static readonly DEFAULT_CONFIG: Partial<GeminiConfig> = {
     model: 'gemini-1.5-flash',
-    maxRetries: 3,
-    retryDelay: 1000,
-    timeout: 30000
+    maxRetries: 2,
+    retryDelay: 2000,
+    timeout: 60000
   };
 
   private static readonly API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -87,31 +87,40 @@ export class GeminiAPI {
   }
 
   /**
-   * Generate UI modification suggestions
+   * Generate UI modification suggestions with enhanced precision
    */
   async modifyExistingUI(originalJSON: string, modificationRequest: string, systemPrompt: string): Promise<GeminiResponse> {
     console.log('🔄 Starting UI modification with Gemini');
     
-    const prompt = `You are tasked with modifying an existing UI JSON structure based on user feedback.
+    // Enhanced prompt for better property preservation
+    const prompt = `TASK: Modify the provided JSON structure with absolute precision.
 
-ORIGINAL JSON:
+CRITICAL RULES:
+1. RETURN ONLY VALID JSON - no explanations, no markdown, no comments
+2. PRESERVE ALL UNCHANGED ELEMENTS EXACTLY - every property, every ID, every value
+3. ONLY MODIFY what the user specifically requests
+4. MAINTAIN EXACT COMPONENT IDs for unchanged elements
+5. PRESERVE ALL PROPERTIES for unchanged components
+
+ORIGINAL JSON TO MODIFY:
 ${originalJSON}
 
-MODIFICATION REQUEST:
+USER'S MODIFICATION REQUEST:
 ${modificationRequest}
 
-Please provide the complete modified JSON structure. Make sure to:
-1. Keep the same overall structure
-2. Maintain all existing componentNodeId values
-3. Only modify the requested elements
-4. Ensure all JSON is valid and complete
+INSTRUCTIONS:
+- Start with the original JSON as your base
+- Apply ONLY the changes requested by the user
+- For unchanged elements: copy componentNodeId, properties, and structure EXACTLY
+- For new elements: use appropriate componentNodeId from available design system
+- Ensure the final JSON is complete and valid
 
-Return ONLY the modified JSON, no explanation needed.`;
+Return the complete modified JSON structure:`;
 
     const request: GeminiRequest = {
       prompt,
       systemPrompt,
-      temperature: 0.3 // Lower temperature for more consistent modifications
+      temperature: 0.1 // Very low temperature for maximum consistency
     };
 
     return this.generateJSON(request);
@@ -164,24 +173,24 @@ Return ONLY the modified JSON, no explanation needed.`;
   private async makeAPICall(request: GeminiRequest): Promise<GeminiResponse> {
     const url = `${GeminiAPI.API_BASE_URL}/${this.config.model}:generateContent?key=${this.config.apiKey}`;
     
-    const systemInstruction = request.systemPrompt ? {
-      role: 'system',
-      parts: [{ text: request.systemPrompt }]
-    } : null;
+    // Combine system prompt with user prompt since Gemini doesn't support system role
+    const combinedPrompt = request.systemPrompt 
+      ? `${request.systemPrompt}\n\nUser Request: ${request.prompt}${request.context ? `\n\nContext: ${request.context}` : ''}`
+      : request.prompt + (request.context ? `\n\nContext: ${request.context}` : '');
 
     const requestBody = {
       contents: [
-        ...(systemInstruction ? [systemInstruction] : []),
         {
           role: 'user',
-          parts: [{ text: request.prompt + (request.context ? `\n\nContext: ${request.context}` : '') }]
+          parts: [{ text: combinedPrompt }]
         }
       ],
       generationConfig: {
         temperature: request.temperature ?? 0.7,
         maxOutputTokens: request.maxTokens ?? 4000,
         topK: 40,
-        topP: 0.95
+        topP: 0.95,
+        responseMimeType: "application/json"
       },
       safetySettings: [
         {
@@ -204,9 +213,6 @@ Return ONLY the modified JSON, no explanation needed.`;
     };
 
     console.log('📡 Making API call to Gemini...');
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
     try {
       const response = await fetch(url, {
@@ -214,11 +220,8 @@ Return ONLY the modified JSON, no explanation needed.`;
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal
+        body: JSON.stringify(requestBody)
       });
-
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -256,7 +259,6 @@ Return ONLY the modified JSON, no explanation needed.`;
       };
       
     } catch (error) {
-      clearTimeout(timeoutId);
       throw error;
     }
   }
@@ -286,10 +288,12 @@ Return ONLY the modified JSON, no explanation needed.`;
     }
     
     // Network/timeout errors
-    if (message.includes('timeout') || message.includes('network') || message.includes('fetch')) {
+    if (message.includes('timeout') || message.includes('network') || message.includes('fetch') || 
+        message.includes('failed to fetch') || message.includes('networkerror') || 
+        message.includes('connection') || message.includes('aborted')) {
       return {
         code: 'NETWORK_ERROR',
-        message: 'Network error or timeout. Please check your connection.',
+        message: 'Network error or timeout. The Gemini API may be slow - please try again.',
         retryable: true
       };
     }
@@ -367,14 +371,33 @@ Return ONLY the modified JSON, no explanation needed.`;
    */
   async testConnection(): Promise<boolean> {
     try {
+      console.log('🧪 Starting API connection test with key:', this.config.apiKey.substring(0, 10) + '...');
+      
       const testRequest: GeminiRequest = {
         prompt: 'Say "Hello, API connection successful!" and nothing else.',
         temperature: 0
       };
       
+      console.log('📡 Making test API call...');
       const response = await this.makeAPICall(testRequest);
-      return response.success && (response.content?.includes('Hello, API connection successful!') || false);
-    } catch {
+      
+      console.log('📋 Test response:', {
+        success: response.success,
+        content: response.content?.substring(0, 100),
+        error: response.error
+      });
+      
+      if (!response.success) {
+        console.error('❌ API call failed:', response.error);
+        return false;
+      }
+      
+      const isValid = response.content?.includes('Hello, API connection successful!') || false;
+      console.log('✅ API test validation result:', isValid);
+      
+      return response.success && isValid;
+    } catch (error) {
+      console.error('❌ API test exception:', error);
       return false;
     }
   }
