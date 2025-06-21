@@ -43,11 +43,228 @@ var AIDesignerUI = (() => {
     mod
   ));
 
+  // src/ui/core/message-handler.js
+  var require_message_handler = __commonJS({
+    "src/ui/core/message-handler.js"(exports, module) {
+      "use strict";
+      var MessageHandler2 = class {
+        constructor(stateManager) {
+          this.stateManager = stateManager;
+          this.handlers = /* @__PURE__ */ new Map();
+          this.middleware = [];
+          this.isInitialized = false;
+          this.handleMessage = this.handleMessage.bind(this);
+        }
+        /**
+         * Initialize message handling
+         */
+        initialize() {
+          if (this.isInitialized) return;
+          window.addEventListener("message", this.handleMessage);
+          this.isInitialized = true;
+          console.log("\u{1F4E8} Message handler initialized");
+        }
+        /**
+         * Register a handler for a specific message type
+         */
+        register(messageType, handler) {
+          if (!this.handlers.has(messageType)) {
+            this.handlers.set(messageType, []);
+          }
+          this.handlers.get(messageType).push(handler);
+          console.log(`\u{1F4DD} Handler registered for: ${messageType}`);
+        }
+        /**
+         * Unregister a handler
+         */
+        unregister(messageType, handler) {
+          const handlers = this.handlers.get(messageType);
+          if (handlers) {
+            const index = handlers.indexOf(handler);
+            if (index > -1) {
+              handlers.splice(index, 1);
+              if (handlers.length === 0) {
+                this.handlers.delete(messageType);
+              }
+            }
+          }
+        }
+        /**
+         * Add middleware that runs before all handlers
+         */
+        addMiddleware(middleware) {
+          this.middleware.push(middleware);
+        }
+        /**
+         * Main message handler - routes messages to registered handlers
+         */
+        async handleMessage(event) {
+          const msg = event.data.pluginMessage;
+          if (!msg) return;
+          console.log("\u{1F4E8} Message from plugin:", msg.type);
+          try {
+            let shouldContinue = true;
+            for (const middleware of this.middleware) {
+              const result = await middleware(msg, this.stateManager);
+              if (result === false) {
+                shouldContinue = false;
+                break;
+              }
+            }
+            if (!shouldContinue) return;
+            const handlers = this.handlers.get(msg.type);
+            if (handlers && handlers.length > 0) {
+              for (const handler of handlers) {
+                try {
+                  await handler(msg, this.stateManager);
+                } catch (error) {
+                  console.error(`\u274C Handler error for ${msg.type}:`, error);
+                }
+              }
+            } else {
+              this.handleUnknownMessage(msg);
+            }
+          } catch (error) {
+            console.error("\u274C Message handling error:", error);
+          }
+        }
+        /**
+         * Handle unknown message types
+         */
+        handleUnknownMessage(msg) {
+          console.warn(`\u26A0\uFE0F No handler registered for message type: ${msg.type}`);
+        }
+        /**
+         * Send message to plugin backend
+         */
+        sendToPlugin(message) {
+          try {
+            parent.postMessage({
+              pluginMessage: message
+            }, "*");
+            console.log("\u{1F4E4} Message sent to plugin:", message.type);
+          } catch (error) {
+            console.error("\u274C Failed to send message:", error);
+          }
+        }
+        /**
+         * Send message and wait for response
+         */
+        async sendAndWait(message, responseType, timeout = 5e3) {
+          return new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+              this.unregister(responseType, responseHandler);
+              reject(new Error(`Timeout waiting for ${responseType}`));
+            }, timeout);
+            const responseHandler = (responseMsg) => {
+              clearTimeout(timeoutId);
+              this.unregister(responseType, responseHandler);
+              resolve(responseMsg);
+            };
+            this.register(responseType, responseHandler);
+            this.sendToPlugin(message);
+          });
+        }
+        /**
+         * Cleanup
+         */
+        destroy() {
+          if (this.isInitialized) {
+            window.removeEventListener("message", this.handleMessage);
+            this.handlers.clear();
+            this.middleware = [];
+            this.isInitialized = false;
+            console.log("\u{1F4E8} Message handler destroyed");
+          }
+        }
+      };
+      var CoreMessageHandlers = class _CoreMessageHandlers {
+        static registerAll(messageHandler, stateManager) {
+          messageHandler.register("api-key-loaded", (msg, state) => {
+            console.log("\u2705 API key loaded from storage");
+            state.setState("apiKeyLoaded", true);
+            const apiKeyInput = document.getElementById("apiKey");
+            if (apiKeyInput) {
+              apiKeyInput.value = "\u25CF".repeat(40);
+              apiKeyInput.setAttribute("data-has-key", "true");
+            }
+            state.setState("generatorTabEnabled", true);
+            _CoreMessageHandlers.showStatus("connectionStatus", "\u2705 API key loaded from previous session", "success");
+          });
+          messageHandler.register("api-key-saved", (msg, state) => {
+            const saveBtn = document.getElementById("saveBtn");
+            if (saveBtn) {
+              saveBtn.disabled = false;
+              saveBtn.textContent = "\u{1F4BE} Save API Key";
+            }
+            _CoreMessageHandlers.showStatus("connectionStatus", "\u2705 API key saved successfully!", "success");
+            const keyInput = document.getElementById("apiKey");
+            if (keyInput) {
+              keyInput.value = "\u25CF".repeat(40);
+              keyInput.setAttribute("data-has-key", "true");
+            }
+            state.setState("generatorTabEnabled", true);
+            state.setState("apiKeyLoaded", true);
+          });
+          messageHandler.register("api-key-found", (msg, state) => {
+            state.setState("apiKeyLoaded", true);
+          });
+          messageHandler.register("api-key-not-found", (msg, state) => {
+            state.setState("apiKeyLoaded", false);
+          });
+          messageHandler.register("api-key-error", (msg, state) => {
+            state.setState("apiKeyLoaded", false);
+            _CoreMessageHandlers.showStatus("connectionStatus", `\u274C API key error: ${msg.payload}`, "error");
+          });
+          messageHandler.register("ui-generation-error", (msg, state) => {
+            _CoreMessageHandlers.showStatus("generationStatus", `\u274C Generation error: ${msg.error}`, "error");
+          });
+          messageHandler.register("component-navigation-success", (msg, state) => {
+            console.log("\u2705 Navigated to component successfully");
+          });
+          console.log("\u2705 Core message handlers registered");
+        }
+        /**
+         * Utility function for showing status messages
+         */
+        static showStatus(containerId, message, type) {
+          const container = document.getElementById(containerId);
+          if (!container) return;
+          container.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        /**
+         * Utility function for clearing status messages
+         */
+        static clearStatus(containerId) {
+          const container = document.getElementById(containerId);
+          if (container) container.innerHTML = "";
+        }
+      };
+      function createMessageHandler(stateManager) {
+        const messageHandler = new MessageHandler2(stateManager);
+        CoreMessageHandlers.registerAll(messageHandler, stateManager);
+        return messageHandler;
+      }
+      if (typeof window !== "undefined") {
+        window.MessageHandler = MessageHandler2;
+        window.createMessageHandler = createMessageHandler;
+        window.CoreMessageHandlers = CoreMessageHandlers;
+      }
+      if (typeof module !== "undefined" && module.exports) {
+        module.exports = {
+          MessageHandler: MessageHandler2,
+          createMessageHandler,
+          CoreMessageHandlers
+        };
+      }
+    }
+  });
+
   // src/ui/core/ui-framework.js
   var require_ui_framework = __commonJS({
     "src/ui/core/ui-framework.js"(exports, module) {
       "use strict";
-      var UIFramework6 = class _UIFramework {
+      var UIFramework3 = class _UIFramework {
         constructor() {
           this.components = /* @__PURE__ */ new Map();
           this.eventListeners = /* @__PURE__ */ new Map();
@@ -382,17 +599,17 @@ var AIDesignerUI = (() => {
         }
       };
       if (typeof window !== "undefined") {
-        window.UIFramework = UIFramework6;
-        window.$ = UIFramework6.$;
-        window.$$ = UIFramework6.$$;
-        window.byId = UIFramework6.byId;
-        window.showStatus = UIFramework6.showStatus;
-        window.clearStatus = UIFramework6.clearStatus;
-        window.copyToClipboard = UIFramework6.copyToClipboard;
-        window.switchTab = UIFramework6.switchTab;
+        window.UIFramework = UIFramework3;
+        window.$ = UIFramework3.$;
+        window.$$ = UIFramework3.$$;
+        window.byId = UIFramework3.byId;
+        window.showStatus = UIFramework3.showStatus;
+        window.clearStatus = UIFramework3.clearStatus;
+        window.copyToClipboard = UIFramework3.copyToClipboard;
+        window.switchTab = UIFramework3.switchTab;
       }
       if (typeof module !== "undefined" && module.exports) {
-        module.exports = UIFramework6;
+        module.exports = UIFramework3;
       }
     }
   });
@@ -401,7 +618,7 @@ var AIDesignerUI = (() => {
   var require_state_manager = __commonJS({
     "src/ui/core/state-manager.js"(exports, module) {
       "use strict";
-      var StateManager5 = class {
+      var StateManager2 = class {
         constructor() {
           this.state = {
             // Tab management
@@ -678,7 +895,7 @@ var AIDesignerUI = (() => {
           }
         }
       };
-      var stateManager = new StateManager5();
+      var stateManager = new StateManager2();
       stateManager.subscribe("currentTab", () => stateManager.saveToSession());
       stateManager.subscribe("currentPlatform", () => stateManager.saveToSession());
       stateManager.subscribe("currentFilter", () => stateManager.saveToSession());
@@ -692,231 +909,14 @@ var AIDesignerUI = (() => {
     }
   });
 
-  // src/ui/core/message-handler.js
-  var require_message_handler = __commonJS({
-    "src/ui/core/message-handler.js"(exports, module) {
-      "use strict";
-      var MessageHandler5 = class {
-        constructor(stateManager) {
-          this.stateManager = stateManager;
-          this.handlers = /* @__PURE__ */ new Map();
-          this.middleware = [];
-          this.isInitialized = false;
-          this.handleMessage = this.handleMessage.bind(this);
-        }
-        /**
-         * Initialize message handling
-         */
-        initialize() {
-          if (this.isInitialized) return;
-          window.addEventListener("message", this.handleMessage);
-          this.isInitialized = true;
-          console.log("\u{1F4E8} Message handler initialized");
-        }
-        /**
-         * Register a handler for a specific message type
-         */
-        register(messageType, handler) {
-          if (!this.handlers.has(messageType)) {
-            this.handlers.set(messageType, []);
-          }
-          this.handlers.get(messageType).push(handler);
-          console.log(`\u{1F4DD} Handler registered for: ${messageType}`);
-        }
-        /**
-         * Unregister a handler
-         */
-        unregister(messageType, handler) {
-          const handlers = this.handlers.get(messageType);
-          if (handlers) {
-            const index = handlers.indexOf(handler);
-            if (index > -1) {
-              handlers.splice(index, 1);
-              if (handlers.length === 0) {
-                this.handlers.delete(messageType);
-              }
-            }
-          }
-        }
-        /**
-         * Add middleware that runs before all handlers
-         */
-        addMiddleware(middleware) {
-          this.middleware.push(middleware);
-        }
-        /**
-         * Main message handler - routes messages to registered handlers
-         */
-        async handleMessage(event) {
-          const msg = event.data.pluginMessage;
-          if (!msg) return;
-          console.log("\u{1F4E8} Message from plugin:", msg.type);
-          try {
-            let shouldContinue = true;
-            for (const middleware of this.middleware) {
-              const result = await middleware(msg, this.stateManager);
-              if (result === false) {
-                shouldContinue = false;
-                break;
-              }
-            }
-            if (!shouldContinue) return;
-            const handlers = this.handlers.get(msg.type);
-            if (handlers && handlers.length > 0) {
-              for (const handler of handlers) {
-                try {
-                  await handler(msg, this.stateManager);
-                } catch (error) {
-                  console.error(`\u274C Handler error for ${msg.type}:`, error);
-                }
-              }
-            } else {
-              this.handleUnknownMessage(msg);
-            }
-          } catch (error) {
-            console.error("\u274C Message handling error:", error);
-          }
-        }
-        /**
-         * Handle unknown message types
-         */
-        handleUnknownMessage(msg) {
-          console.warn(`\u26A0\uFE0F No handler registered for message type: ${msg.type}`);
-        }
-        /**
-         * Send message to plugin backend
-         */
-        sendToPlugin(message) {
-          try {
-            parent.postMessage({
-              pluginMessage: message
-            }, "*");
-            console.log("\u{1F4E4} Message sent to plugin:", message.type);
-          } catch (error) {
-            console.error("\u274C Failed to send message:", error);
-          }
-        }
-        /**
-         * Send message and wait for response
-         */
-        async sendAndWait(message, responseType, timeout = 5e3) {
-          return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => {
-              this.unregister(responseType, responseHandler);
-              reject(new Error(`Timeout waiting for ${responseType}`));
-            }, timeout);
-            const responseHandler = (responseMsg) => {
-              clearTimeout(timeoutId);
-              this.unregister(responseType, responseHandler);
-              resolve(responseMsg);
-            };
-            this.register(responseType, responseHandler);
-            this.sendToPlugin(message);
-          });
-        }
-        /**
-         * Cleanup
-         */
-        destroy() {
-          if (this.isInitialized) {
-            window.removeEventListener("message", this.handleMessage);
-            this.handlers.clear();
-            this.middleware = [];
-            this.isInitialized = false;
-            console.log("\u{1F4E8} Message handler destroyed");
-          }
-        }
-      };
-      var CoreMessageHandlers = class _CoreMessageHandlers {
-        static registerAll(messageHandler, stateManager) {
-          messageHandler.register("api-key-loaded", (msg, state) => {
-            console.log("\u2705 API key loaded from storage");
-            state.setState("apiKeyLoaded", true);
-            const apiKeyInput = document.getElementById("apiKey");
-            if (apiKeyInput) {
-              apiKeyInput.value = "\u25CF".repeat(40);
-              apiKeyInput.setAttribute("data-has-key", "true");
-            }
-            state.setState("generatorTabEnabled", true);
-            _CoreMessageHandlers.showStatus("connectionStatus", "\u2705 API key loaded from previous session", "success");
-          });
-          messageHandler.register("api-key-saved", (msg, state) => {
-            const saveBtn = document.getElementById("saveBtn");
-            if (saveBtn) {
-              saveBtn.disabled = false;
-              saveBtn.textContent = "\u{1F4BE} Save API Key";
-            }
-            _CoreMessageHandlers.showStatus("connectionStatus", "\u2705 API key saved successfully!", "success");
-            const keyInput = document.getElementById("apiKey");
-            if (keyInput) {
-              keyInput.value = "\u25CF".repeat(40);
-              keyInput.setAttribute("data-has-key", "true");
-            }
-            state.setState("generatorTabEnabled", true);
-            state.setState("apiKeyLoaded", true);
-          });
-          messageHandler.register("api-key-found", (msg, state) => {
-            state.setState("apiKeyLoaded", true);
-          });
-          messageHandler.register("api-key-not-found", (msg, state) => {
-            state.setState("apiKeyLoaded", false);
-          });
-          messageHandler.register("api-key-error", (msg, state) => {
-            state.setState("apiKeyLoaded", false);
-            _CoreMessageHandlers.showStatus("connectionStatus", `\u274C API key error: ${msg.payload}`, "error");
-          });
-          messageHandler.register("ui-generation-error", (msg, state) => {
-            _CoreMessageHandlers.showStatus("generationStatus", `\u274C Generation error: ${msg.error}`, "error");
-          });
-          messageHandler.register("component-navigation-success", (msg, state) => {
-            console.log("\u2705 Navigated to component successfully");
-          });
-          console.log("\u2705 Core message handlers registered");
-        }
-        /**
-         * Utility function for showing status messages
-         */
-        static showStatus(containerId, message, type) {
-          const container = document.getElementById(containerId);
-          if (!container) return;
-          container.innerHTML = `<div class="status ${type}">${message}</div>`;
-        }
-        /**
-         * Utility function for clearing status messages
-         */
-        static clearStatus(containerId) {
-          const container = document.getElementById(containerId);
-          if (container) container.innerHTML = "";
-        }
-      };
-      function createMessageHandler(stateManager) {
-        const messageHandler = new MessageHandler5(stateManager);
-        CoreMessageHandlers.registerAll(messageHandler, stateManager);
-        return messageHandler;
-      }
-      if (typeof window !== "undefined") {
-        window.MessageHandler = MessageHandler5;
-        window.createMessageHandler = createMessageHandler;
-        window.CoreMessageHandlers = CoreMessageHandlers;
-      }
-      if (typeof module !== "undefined" && module.exports) {
-        module.exports = {
-          MessageHandler: MessageHandler5,
-          createMessageHandler,
-          CoreMessageHandlers
-        };
-      }
-    }
-  });
-
   // src/ui/core/features/ai-generator-ui.js
-  var import_message_handler2, import_ui_framework2, import_state_manager3, AIGeneratorUI;
+  var import_message_handler, import_ui_framework, import_state_manager, AIGeneratorUI;
   var init_ai_generator_ui = __esm({
     "src/ui/core/features/ai-generator-ui.js"() {
       "use strict";
-      import_message_handler2 = __toESM(require_message_handler());
-      import_ui_framework2 = __toESM(require_ui_framework());
-      import_state_manager3 = __toESM(require_state_manager());
+      import_message_handler = __toESM(require_message_handler());
+      import_ui_framework = __toESM(require_ui_framework());
+      import_state_manager = __toESM(require_state_manager());
       AIGeneratorUI = class {
         constructor() {
           this.lastGeneratedJSON = null;
@@ -1240,7 +1240,7 @@ var AIDesignerUI = (() => {
               this.elements.jsonOutput.textContent = JSON.stringify(layoutData, null, 2);
             }
             this.showStatus("\u2728 Creating UI in Figma...", "success");
-            import_message_handler2.MessageHandler.sendMessage({
+            import_message_handler.MessageHandler.sendMessage({
               type: "generate-ui-from-json",
               payload: JSON.stringify(layoutData)
             });
@@ -1315,7 +1315,7 @@ var AIDesignerUI = (() => {
             if (this.elements.jsonOutput) {
               this.elements.jsonOutput.textContent = JSON.stringify(modifiedJSON, null, 2);
             }
-            import_message_handler2.MessageHandler.sendMessage({
+            import_message_handler.MessageHandler.sendMessage({
               type: "modify-existing-ui",
               payload: {
                 modifiedJSON,
@@ -1346,7 +1346,7 @@ var AIDesignerUI = (() => {
             return;
           }
           this.startFresh();
-          import_message_handler2.MessageHandler.sendMessage({
+          import_message_handler.MessageHandler.sendMessage({
             type: "generate-ui-from-json",
             payload: jsonInput.value.trim()
           });
@@ -1436,7 +1436,7 @@ var AIDesignerUI = (() => {
           this.designState.history = ["Original design generated."];
           this.updateModificationHistory();
           this.saveCurrentSession();
-          import_message_handler2.MessageHandler.sendMessage({
+          import_message_handler.MessageHandler.sendMessage({
             type: "modify-existing-ui",
             payload: {
               modifiedJSON: this.designState.current,
@@ -1461,7 +1461,7 @@ var AIDesignerUI = (() => {
          */
         copyGeneratedJSON() {
           if (this.lastGeneratedJSON) {
-            import_ui_framework2.UIFramework.copyToClipboard(JSON.stringify(this.lastGeneratedJSON, null, 2)).then(() => this.showStatus("\u{1F4CB} JSON copied to clipboard!", "success"));
+            import_ui_framework.UIFramework.copyToClipboard(JSON.stringify(this.lastGeneratedJSON, null, 2)).then(() => this.showStatus("\u{1F4CB} JSON copied to clipboard!", "success"));
           }
         }
         /**
@@ -1577,7 +1577,7 @@ var AIDesignerUI = (() => {
               }
             };
             window.addEventListener("message", handler);
-            import_message_handler2.MessageHandler.sendMessage({ type: "get-api-key" });
+            import_message_handler.MessageHandler.sendMessage({ type: "get-api-key" });
           });
         }
         /**
@@ -1788,7 +1788,7 @@ var AIDesignerUI = (() => {
          */
         saveCurrentSession() {
           if (this.designState.isIterating) {
-            import_message_handler2.MessageHandler.sendMessage({
+            import_message_handler.MessageHandler.sendMessage({
               type: "save-current-session",
               payload: {
                 designState: this.designState,
@@ -1853,7 +1853,7 @@ var AIDesignerUI = (() => {
          */
         showStatus(message, type) {
           if (this.elements.generationStatus) {
-            import_ui_framework2.UIFramework.showStatus(this.elements.generationStatus.id, message, type);
+            import_ui_framework.UIFramework.showStatus(this.elements.generationStatus.id, message, type);
           }
         }
         /**
@@ -1861,7 +1861,7 @@ var AIDesignerUI = (() => {
          */
         clearStatus() {
           if (this.elements.generationStatus) {
-            import_ui_framework2.UIFramework.clearStatus(this.elements.generationStatus.id);
+            import_ui_framework.UIFramework.clearStatus(this.elements.generationStatus.id);
           }
         }
         /**
@@ -1935,9 +1935,8 @@ var AIDesignerUI = (() => {
   // src/ui/core/app.js
   var require_app = __commonJS({
     "src/ui/core/app.js"(exports, module) {
-      "use strict";
       init_ai_generator_ui();
-      var AIDesignerApp2 = class {
+      var AIDesignerApp = class {
         constructor() {
           this.stateManager = null;
           this.messageHandler = null;
@@ -2368,1285 +2367,25 @@ var AIDesignerUI = (() => {
       function initializeApp() {
         if (document.readyState === "loading") {
           document.addEventListener("DOMContentLoaded", () => {
-            const app = new AIDesignerApp2();
+            const app = new AIDesignerApp();
             app.initialize();
             window.aidesignerApp = app;
           });
         } else {
-          const app = new AIDesignerApp2();
+          const app = new AIDesignerApp();
           app.initialize();
           window.aidesignerApp = app;
         }
       }
       if (typeof window !== "undefined") {
-        window.AIDesignerApp = AIDesignerApp2;
+        window.AIDesignerApp = AIDesignerApp;
         window.initializeApp = initializeApp;
         initializeApp();
       }
       if (typeof module !== "undefined" && module.exports) {
-        module.exports = { AIDesignerApp: AIDesignerApp2, initializeApp };
+        module.exports = { AIDesignerApp, initializeApp };
       }
     }
   });
-
-  // ui-main.js
-  var import_ui_framework4 = __toESM(require_ui_framework());
-  var import_state_manager4 = __toESM(require_state_manager());
-
-  // src/ui/core/tab-manager.js
-  var import_state_manager = __toESM(require_state_manager());
-  var TabManager = class {
-    constructor() {
-      this.currentTab = "design-system";
-      this.tabs = {
-        "design-system": {
-          button: null,
-          content: null,
-          title: "\u{1F50D} Design System",
-          enabled: true
-        },
-        "api-settings": {
-          button: null,
-          content: null,
-          title: "\u2699\uFE0F API Settings",
-          enabled: true
-        },
-        "ai-generator": {
-          button: null,
-          content: null,
-          title: "\u{1F4AC} AI Generator",
-          enabled: false
-          // Initially disabled until scan completes
-        }
-      };
-      this.initializeEventListeners();
-    }
-    /**
-     * Initialize tab navigation event listeners
-     */
-    initializeEventListeners() {
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", () => {
-          this.setupTabButtons();
-        });
-      } else {
-        this.setupTabButtons();
-      }
-    }
-    /**
-     * Setup tab button click handlers
-     */
-    setupTabButtons() {
-      Object.keys(this.tabs).forEach((tabId) => {
-        const button = document.querySelector(`[onclick="switchTab('${tabId}')"]`) || document.querySelector(`[data-tab="${tabId}"]`);
-        const content = document.getElementById(tabId);
-        if (button && content) {
-          this.tabs[tabId].button = button;
-          this.tabs[tabId].content = content;
-          button.removeAttribute("onclick");
-          button.addEventListener("click", (e) => {
-            e.preventDefault();
-            this.switchTab(tabId);
-          });
-          console.log(`\u2705 Tab "${tabId}" initialized`);
-        } else {
-          console.warn(`\u26A0\uFE0F Tab elements not found for "${tabId}"`);
-        }
-      });
-      this.switchTab(this.currentTab);
-    }
-    /**
-     * Switch to specified tab
-     * @param {string} tabId - ID of tab to switch to
-     */
-    switchTab(tabId) {
-      if (!this.tabs[tabId]) {
-        console.error(`\u274C Unknown tab: ${tabId}`);
-        return;
-      }
-      if (!this.tabs[tabId].enabled) {
-        console.log(`\u26A0\uFE0F Tab "${tabId}" is disabled`);
-        return;
-      }
-      console.log(`\u{1F504} Switching to tab: ${tabId}`);
-      this.currentTab = tabId;
-      import_state_manager.StateManager.updateState({ currentTab: tabId });
-      Object.keys(this.tabs).forEach((id) => {
-        const tab = this.tabs[id];
-        if (tab.button) {
-          tab.button.classList.remove("active");
-          if (id === tabId) {
-            tab.button.classList.add("active");
-          }
-        }
-      });
-      Object.keys(this.tabs).forEach((id) => {
-        const tab = this.tabs[id];
-        if (tab.content) {
-          tab.content.classList.remove("active");
-          if (id === tabId) {
-            tab.content.classList.add("active");
-          }
-        }
-      });
-      this.emitTabChangeEvent(tabId);
-    }
-    /**
-     * Enable a specific tab
-     * @param {string} tabId - ID of tab to enable
-     */
-    enableTab(tabId) {
-      if (!this.tabs[tabId]) {
-        console.error(`\u274C Unknown tab: ${tabId}`);
-        return;
-      }
-      this.tabs[tabId].enabled = true;
-      if (this.tabs[tabId].button) {
-        this.tabs[tabId].button.disabled = false;
-        this.tabs[tabId].button.classList.remove("disabled");
-      }
-      console.log(`\u2705 Tab "${tabId}" enabled`);
-    }
-    /**
-     * Disable a specific tab
-     * @param {string} tabId - ID of tab to disable
-     */
-    disableTab(tabId) {
-      if (!this.tabs[tabId]) {
-        console.error(`\u274C Unknown tab: ${tabId}`);
-        return;
-      }
-      this.tabs[tabId].enabled = false;
-      if (this.tabs[tabId].button) {
-        this.tabs[tabId].button.disabled = true;
-        this.tabs[tabId].button.classList.add("disabled");
-      }
-      if (this.currentTab === tabId) {
-        const firstEnabledTab = Object.keys(this.tabs).find((id) => this.tabs[id].enabled);
-        if (firstEnabledTab) {
-          this.switchTab(firstEnabledTab);
-        }
-      }
-      console.log(`\u274C Tab "${tabId}" disabled`);
-    }
-    /**
-     * Get current active tab
-     * @returns {string} Current tab ID
-     */
-    getCurrentTab() {
-      return this.currentTab;
-    }
-    /**
-     * Check if a tab is enabled
-     * @param {string} tabId - ID of tab to check
-     * @returns {boolean} True if tab is enabled
-     */
-    isTabEnabled(tabId) {
-      var _a;
-      return ((_a = this.tabs[tabId]) == null ? void 0 : _a.enabled) || false;
-    }
-    /**
-     * Get all tab information
-     * @returns {Object} Tab configuration object
-     */
-    getAllTabs() {
-      return __spreadValues({}, this.tabs);
-    }
-    /**
-     * Update tab title
-     * @param {string} tabId - ID of tab to update
-     * @param {string} newTitle - New title for the tab
-     */
-    updateTabTitle(tabId, newTitle) {
-      if (!this.tabs[tabId]) {
-        console.error(`\u274C Unknown tab: ${tabId}`);
-        return;
-      }
-      this.tabs[tabId].title = newTitle;
-      if (this.tabs[tabId].button) {
-        const button = this.tabs[tabId].button;
-        const iconMatch = button.textContent.match(/^[🔍⚙️💬]\s*/);
-        const icon = iconMatch ? iconMatch[0] : "";
-        button.textContent = icon + newTitle.replace(/^[🔍⚙️💬]\s*/, "");
-      }
-      console.log(`\u{1F4DD} Tab "${tabId}" title updated to: ${newTitle}`);
-    }
-    /**
-     * Emit custom tab change event
-     * @param {string} tabId - ID of newly active tab
-     */
-    emitTabChangeEvent(tabId) {
-      const event = new CustomEvent("tabChanged", {
-        detail: {
-          tabId,
-          previousTab: this.currentTab,
-          timestamp: Date.now()
-        }
-      });
-      document.dispatchEvent(event);
-    }
-    /**
-     * Add listener for tab change events
-     * @param {Function} callback - Function to call when tab changes
-     */
-    onTabChange(callback) {
-      document.addEventListener("tabChanged", (event) => {
-        callback(event.detail);
-      });
-    }
-    /**
-     * Enable the AI Generator tab (called after successful scan)
-     */
-    enableGeneratorTab() {
-      this.enableTab("ai-generator");
-      const currentTitle = this.tabs["ai-generator"].title;
-      if (!currentTitle.includes("\u2713")) {
-        this.updateTabTitle("ai-generator", currentTitle.replace("\u{1F4AC}", "\u{1F4AC}\u2713"));
-      }
-    }
-    /**
-     * Reset AI Generator tab state
-     */
-    resetGeneratorTab() {
-      this.disableTab("ai-generator");
-      this.updateTabTitle("ai-generator", "\u{1F4AC} AI Generator");
-    }
-    /**
-     * Show tab loading state
-     * @param {string} tabId - ID of tab to show loading for
-     * @param {boolean} isLoading - Whether tab is loading
-     */
-    setTabLoading(tabId, isLoading) {
-      if (!this.tabs[tabId]) return;
-      const button = this.tabs[tabId].button;
-      if (!button) return;
-      if (isLoading) {
-        button.classList.add("loading");
-        button.style.opacity = "0.7";
-        button.style.pointerEvents = "none";
-      } else {
-        button.classList.remove("loading");
-        button.style.opacity = "";
-        button.style.pointerEvents = "";
-      }
-    }
-    /**
-     * Add badge to tab (e.g., notification count)
-     * @param {string} tabId - ID of tab to add badge to
-     * @param {string|number} content - Badge content
-     */
-    addTabBadge(tabId, content) {
-      if (!this.tabs[tabId]) return;
-      const button = this.tabs[tabId].button;
-      if (!button) return;
-      const existingBadge = button.querySelector(".tab-badge");
-      if (existingBadge) {
-        existingBadge.remove();
-      }
-      const badge = document.createElement("span");
-      badge.className = "tab-badge";
-      badge.textContent = content;
-      badge.style.cssText = `
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            background: var(--color-error);
-            color: white;
-            border-radius: 8px;
-            padding: 2px 6px;
-            font-size: 10px;
-            font-weight: 600;
-            min-width: 16px;
-            text-align: center;
-        `;
-      button.style.position = "relative";
-      button.appendChild(badge);
-    }
-    /**
-     * Remove badge from tab
-     * @param {string} tabId - ID of tab to remove badge from
-     */
-    removeTabBadge(tabId) {
-      if (!this.tabs[tabId]) return;
-      const button = this.tabs[tabId].button;
-      if (!button) return;
-      const badge = button.querySelector(".tab-badge");
-      if (badge) {
-        badge.remove();
-      }
-    }
-    /**
-     * Destroy tab manager and clean up event listeners
-     */
-    destroy() {
-      Object.keys(this.tabs).forEach((tabId) => {
-        const tab = this.tabs[tabId];
-        if (tab.button) {
-          const newButton = tab.button.cloneNode(true);
-          tab.button.parentNode.replaceChild(newButton, tab.button);
-        }
-      });
-      console.log("\u{1F5D1}\uFE0F TabManager destroyed");
-    }
-  };
-  window.switchTab = function(tabId) {
-    if (window.tabManager) {
-      window.tabManager.switchTab(tabId);
-    } else {
-      console.warn("\u26A0\uFE0F TabManager not initialized, using fallback");
-      document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.remove("active"));
-      document.querySelectorAll(".tab-content").forEach((content) => content.classList.remove("active"));
-      const targetBtn = document.querySelector(`[onclick*="${tabId}"]`);
-      const targetContent = document.getElementById(tabId);
-      if (targetBtn && targetContent) {
-        targetBtn.classList.add("active");
-        targetContent.classList.add("active");
-      }
-    }
-  };
-
-  // ui-main.js
-  var import_message_handler4 = __toESM(require_message_handler());
-
-  // src/ui/core/features/design-system-ui.js
-  var import_message_handler = __toESM(require_message_handler());
-  var import_ui_framework = __toESM(require_ui_framework());
-  var import_state_manager2 = __toESM(require_state_manager());
-  var DesignSystemUI = class {
-    constructor() {
-      this.componentTypes = {
-        "Navigation": ["appbar", "navbar", "tab", "tabs", "breadcrumb", "pagination", "navigation", "sidebar", "bottom-navigation", "menu"],
-        "Input": ["button", "input", "textarea", "select", "checkbox", "radio", "switch", "slider", "searchbar", "chip"],
-        "Display": ["card", "list", "list-item", "avatar", "image", "icon", "text", "header", "badge", "tooltip"],
-        "Feedback": ["snackbar", "alert", "dialog", "modal", "progress", "skeleton", "loading", "toast"],
-        "Layout": ["container", "frame", "grid", "divider", "spacer"],
-        "Specialized": ["fab", "actionsheet", "bottomsheet", "chart", "table", "calendar", "timeline", "upload", "gallery", "map", "rating", "cart", "price"]
-      };
-      this.scanResults = [];
-      this.currentFilter = "all";
-      this.searchQuery = "";
-      this.elements = {
-        scanBtn: null,
-        rescanBtn: null,
-        scanStatusContainer: null,
-        scanStatusText: null,
-        componentsSection: null,
-        promptSection: null,
-        componentsList: null,
-        searchInput: null,
-        filterButtons: null,
-        statsBar: null,
-        totalCount: null,
-        highConfCount: null,
-        lowConfCount: null,
-        verifiedCount: null
-      };
-      this.initialize();
-    }
-    /**
-     * Initialize Design System UI
-     */
-    initialize() {
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", () => this.setupElements());
-      } else {
-        this.setupElements();
-      }
-      this.registerMessageHandlers();
-    }
-    /**
-     * Setup DOM elements and event listeners
-     */
-    setupElements() {
-      this.elements = {
-        scanBtn: document.getElementById("scanBtn"),
-        rescanBtn: document.getElementById("rescanBtn"),
-        scanStatusContainer: document.getElementById("scanStatusContainer"),
-        scanStatusText: document.getElementById("scanStatusText"),
-        componentsSection: document.getElementById("componentsSection"),
-        promptSection: document.getElementById("promptSection"),
-        componentsList: document.getElementById("componentsList"),
-        searchInput: document.getElementById("searchInput"),
-        statsBar: document.getElementById("statsBar"),
-        totalCount: document.getElementById("totalCount"),
-        highConfCount: document.getElementById("highConfCount"),
-        lowConfCount: document.getElementById("lowConfCount"),
-        verifiedCount: document.getElementById("verifiedCount")
-      };
-      this.setupEventListeners();
-      console.log("\u2705 Design System UI initialized");
-    }
-    /**
-     * Setup event listeners
-     */
-    setupEventListeners() {
-      if (this.elements.scanBtn) {
-        this.elements.scanBtn.addEventListener("click", () => this.scanDesignSystem());
-      }
-      if (this.elements.rescanBtn) {
-        this.elements.rescanBtn.addEventListener("click", () => this.rescanDesignSystem());
-      }
-      if (this.elements.searchInput) {
-        this.elements.searchInput.addEventListener("input", (e) => {
-          this.searchQuery = e.target.value;
-          this.renderComponentList();
-        });
-      }
-      this.setupFilterButtons();
-      const promptBtn = document.querySelector('[onclick="generateLLMPrompt()"]');
-      if (promptBtn) {
-        promptBtn.removeAttribute("onclick");
-        promptBtn.addEventListener("click", () => this.generateLLMPrompt());
-      }
-    }
-    /**
-     * Setup filter button event listeners
-     */
-    setupFilterButtons() {
-      const filterButtons = document.querySelectorAll(".filter-btn");
-      filterButtons.forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          filterButtons.forEach((b) => b.classList.remove("active"));
-          e.target.classList.add("active");
-          this.currentFilter = e.target.dataset.filter;
-          this.renderComponentList();
-        });
-      });
-    }
-    /**
-     * Register message handlers for design system events
-     */
-    registerMessageHandlers() {
-      if (window.messageHandler) {
-        window.messageHandler.register("scan-results", (msg) => {
-          this.handleScanResults(msg.components);
-        });
-        window.messageHandler.register("saved-scan-loaded", (msg) => {
-          this.displaySavedScan(msg.components, msg.scanTime);
-        });
-        window.messageHandler.register("component-type-updated", (msg) => {
-          this.handleComponentTypeUpdated(msg.componentId, msg.newType, msg.componentName);
-        });
-        window.messageHandler.register("llm-prompt-generated", (msg) => {
-          this.handleLLMPromptGenerated(msg.prompt);
-        });
-      }
-    }
-    /**
-     * Start design system scan
-     */
-    scanDesignSystem() {
-      if (this.elements.scanBtn) {
-        this.elements.scanBtn.disabled = true;
-        this.elements.scanBtn.textContent = "\u{1F50D} Scanning...";
-      }
-      import_message_handler.MessageHandler.sendMessage({ type: "scan-design-system" });
-      console.log("\u{1F50D} Starting design system scan");
-    }
-    /**
-     * Re-scan design system
-     */
-    rescanDesignSystem() {
-      this.scanDesignSystem();
-    }
-    /**
-     * Handle scan results from backend
-     */
-    handleScanResults(components) {
-      if (this.elements.scanBtn) {
-        this.elements.scanBtn.disabled = false;
-        this.elements.scanBtn.textContent = "\u{1F50D} Scan Design System";
-      }
-      this.displaySavedScan(components, Date.now());
-      console.log(`\u2705 Scan completed: ${(components == null ? void 0 : components.length) || 0} components found`);
-    }
-    /**
-     * Display saved scan results
-     */
-    displaySavedScan(components, scanTime) {
-      this.scanResults = components || [];
-      const statusContainer = this.elements.scanStatusContainer;
-      const statusText = this.elements.scanStatusText;
-      const rescanBtn = this.elements.rescanBtn;
-      if (this.scanResults.length > 0) {
-        if (statusContainer) statusContainer.classList.add("loaded");
-        if (statusText) {
-          const timeAgo = scanTime ? this.getTimeAgo(scanTime) : "recently";
-          statusText.textContent = `\u2705 ${this.scanResults.length} components loaded (scanned ${timeAgo})`;
-        }
-        if (rescanBtn) rescanBtn.style.display = "inline-block";
-        this.displayComponents();
-        this.enableGeneratorTab();
-      } else {
-        if (statusText) statusText.textContent = "No design system scanned yet";
-        if (rescanBtn) rescanBtn.style.display = "none";
-      }
-    }
-    /**
-     * Display components section and render list
-     */
-    displayComponents() {
-      if (this.scanResults.length === 0) {
-        if (this.elements.componentsSection) this.elements.componentsSection.style.display = "none";
-        if (this.elements.promptSection) this.elements.promptSection.style.display = "none";
-        return;
-      }
-      this.scanResults.forEach((comp) => {
-        if (comp.isVerified === void 0) {
-          comp.isVerified = false;
-        }
-      });
-      this.renderComponentList();
-      this.updateComponentStats();
-      if (this.elements.componentsSection) this.elements.componentsSection.style.display = "block";
-      if (this.elements.promptSection) this.elements.promptSection.style.display = "block";
-    }
-    /**
-     * Render the component list based on current filters
-     */
-    renderComponentList() {
-      const container = this.elements.componentsList;
-      if (!container) return;
-      const filteredComponents = this.getFilteredComponents();
-      container.innerHTML = "";
-      filteredComponents.forEach((comp) => {
-        const item = this.createComponentItem(comp);
-        container.appendChild(item);
-      });
-      this.setupComponentItemListeners();
-    }
-    /**
-     * Setup event listeners for component items
-     */
-    setupComponentItemListeners() {
-      const container = this.elements.componentsList;
-      if (!container) return;
-      container.querySelectorAll(".type-select").forEach((select) => {
-        select.addEventListener("change", (e) => {
-          const componentId = e.target.getAttribute("data-component-id");
-          const newType = e.target.value;
-          this.handleTypeChange(componentId, newType);
-        });
-      });
-      container.querySelectorAll(".navigate-btn").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          const componentId = e.target.getAttribute("data-component-id");
-          const pageName = e.target.getAttribute("data-page-name");
-          this.handleNavigation(componentId, pageName);
-        });
-      });
-    }
-    /**
-     * Create a component item DOM element
-     */
-    createComponentItem(comp) {
-      var _a, _b;
-      const item = document.createElement("div");
-      item.className = "component-item";
-      item.dataset.componentId = comp.id;
-      const confidence = Math.round(comp.confidence * 100);
-      let confidenceClass = "confidence-low";
-      if (comp.isVerified) confidenceClass = "confidence-verified";
-      else if (confidence >= 80) confidenceClass = "confidence-high";
-      else if (confidence >= 60) confidenceClass = "confidence-medium";
-      const statusIcon = comp.isVerified ? "\u2713" : comp.suggestedType === "unknown" ? "\u2753" : "\u{1F916}";
-      const statusClass = comp.isVerified ? "icon-verified" : comp.suggestedType === "unknown" ? "icon-unknown" : "icon-auto";
-      const selectOptions = this.createSelectOptions(comp.suggestedType);
-      item.innerHTML = `
-            <div class="component-info">
-                <div class="component-name">${comp.name}</div>
-                <div class="component-meta">
-                    <div class="type-selector">
-                        <span class="status-icon ${statusClass}">${statusIcon}</span>
-                        <select class="type-select" data-component-id="${comp.id}">${selectOptions}</select>
-                    </div>
-                    <span class="confidence-badge ${confidenceClass}">${comp.isVerified ? "Manual" : confidence + "%"}</span>
-                    <span class="page-info">\u{1F4C4} ${((_a = comp.pageInfo) == null ? void 0 : _a.pageName) || "Unknown"}</span>
-                </div>
-            </div>
-            <div class="component-actions">
-                <button class="btn-action navigate-btn" data-component-id="${comp.id}" data-page-name="${((_b = comp.pageInfo) == null ? void 0 : _b.pageName) || ""}" title="View in Figma">\u{1F441}\uFE0F</button>
-            </div>
-        `;
-      return item;
-    }
-    /**
-     * Create select options for component type dropdown
-     */
-    createSelectOptions(selectedType) {
-      let options = "";
-      Object.keys(this.componentTypes).forEach((category) => {
-        options += `<optgroup label="${category}">`;
-        this.componentTypes[category].forEach((type) => {
-          const isSelected = type === selectedType ? "selected" : "";
-          options += `<option value="${type}" ${isSelected}>${type}</option>`;
-        });
-        options += "</optgroup>";
-      });
-      const unknownSelected = selectedType === "unknown" ? "selected" : "";
-      options += `<optgroup label="Other"><option value="unknown" ${unknownSelected}>unknown</option></optgroup>`;
-      return options;
-    }
-    /**
-     * Get filtered components based on search and filter
-     */
-    getFilteredComponents() {
-      let filtered = this.scanResults;
-      if (this.searchQuery) {
-        filtered = filtered.filter(
-          (comp) => comp.name.toLowerCase().includes(this.searchQuery.toLowerCase()) || comp.suggestedType.toLowerCase().includes(this.searchQuery.toLowerCase())
-        );
-      }
-      switch (this.currentFilter) {
-        case "unknown":
-          return filtered.filter((comp) => comp.suggestedType === "unknown");
-        case "low":
-          return filtered.filter((comp) => comp.confidence < 0.6 && !comp.isVerified);
-        case "verified":
-          return filtered.filter((comp) => comp.isVerified);
-        default:
-          return filtered;
-      }
-    }
-    /**
-     * Update component statistics in the stats bar
-     */
-    updateComponentStats() {
-      const total = this.scanResults.length;
-      const highConf = this.scanResults.filter((comp) => comp.confidence >= 0.8 && !comp.isVerified).length;
-      const lowConf = this.scanResults.filter((comp) => (comp.confidence < 0.6 || comp.suggestedType === "unknown") && !comp.isVerified).length;
-      const verified = this.scanResults.filter((comp) => comp.isVerified).length;
-      if (this.elements.totalCount) this.elements.totalCount.textContent = total;
-      if (this.elements.highConfCount) this.elements.highConfCount.textContent = highConf;
-      if (this.elements.lowConfCount) this.elements.lowConfCount.textContent = lowConf;
-      if (this.elements.verifiedCount) this.elements.verifiedCount.textContent = verified;
-    }
-    /**
-     * Handle component type change
-     */
-    handleTypeChange(componentId, newType) {
-      const component = this.scanResults.find((comp) => comp.id === componentId);
-      if (component) {
-        component.suggestedType = newType;
-        component.confidence = 1;
-        component.isVerified = true;
-        this.renderComponentList();
-        this.updateComponentStats();
-        import_message_handler.MessageHandler.sendMessage({
-          type: "update-component-type",
-          payload: { componentId, newType }
-        });
-        console.log(`\u2705 Updated component ${componentId} to type: ${newType}`);
-      }
-    }
-    /**
-     * Handle navigation to component in Figma
-     */
-    handleNavigation(componentId, pageName) {
-      import_message_handler.MessageHandler.sendMessage({
-        type: "navigate-to-component",
-        componentId,
-        pageName
-      });
-      console.log(`\u{1F9ED} Navigating to component: ${componentId} on page: ${pageName}`);
-    }
-    /**
-     * Handle component type updated from backend
-     */
-    handleComponentTypeUpdated(componentId, newType, componentName) {
-      console.log(`\u2705 Component type updated: ${componentName} \u2192 ${newType}`);
-    }
-    /**
-     * Generate LLM prompt for the design system
-     */
-    generateLLMPrompt() {
-      import_message_handler.MessageHandler.sendMessage({ type: "generate-llm-prompt" });
-      console.log("\u{1F4CB} Generating LLM prompt for design system");
-    }
-    /**
-     * Handle generated LLM prompt
-     */
-    handleLLMPromptGenerated(prompt) {
-      import_ui_framework.UIFramework.copyToClipboard(prompt).then(() => {
-        if (this.elements.scanStatusText) {
-          this.showScanStatus("\u{1F4CB} Prompt copied to clipboard!", "success");
-        }
-      });
-    }
-    /**
-     * Enable the generator tab after successful scan
-     */
-    enableGeneratorTab() {
-      import_state_manager2.StateManager.setState("generatorTabEnabled", true);
-      if (window.tabManager) {
-        window.tabManager.enableGeneratorTab();
-      } else {
-        const generatorTab = document.getElementById("generatorTab");
-        if (generatorTab) {
-          generatorTab.disabled = false;
-        }
-      }
-      console.log("\u2705 Generator tab enabled");
-    }
-    /**
-     * Show scan status message
-     */
-    showScanStatus(message, type) {
-      if (this.elements.scanStatusContainer) {
-        const statusDiv = document.createElement("div");
-        statusDiv.className = `status ${type}`;
-        statusDiv.textContent = message;
-        this.elements.scanStatusContainer.appendChild(statusDiv);
-        setTimeout(() => {
-          if (statusDiv.parentNode) {
-            statusDiv.parentNode.removeChild(statusDiv);
-          }
-        }, 3e3);
-      }
-    }
-    /**
-     * Get time ago string for display
-     */
-    getTimeAgo(timestamp) {
-      if (!timestamp) return "some time ago";
-      const now = Date.now();
-      const diff = now - timestamp;
-      const minutes = Math.floor(diff / (1e3 * 60));
-      const hours = Math.floor(diff / (1e3 * 60 * 60));
-      const days = Math.floor(diff / (1e3 * 60 * 60 * 24));
-      if (minutes < 1) return "just now";
-      if (minutes < 60) return `${minutes} minutes ago`;
-      if (hours < 24) return `${hours} hours ago`;
-      return `${days} days ago`;
-    }
-    /**
-     * Get current scan results
-     */
-    getScanResults() {
-      return this.scanResults;
-    }
-    /**
-     * Get current filter state
-     */
-    getCurrentFilter() {
-      return this.currentFilter;
-    }
-    /**
-     * Get current search query
-     */
-    getSearchQuery() {
-      return this.searchQuery;
-    }
-    /**
-     * Reset all filters and search
-     */
-    resetFilters() {
-      this.currentFilter = "all";
-      this.searchQuery = "";
-      if (this.elements.searchInput) {
-        this.elements.searchInput.value = "";
-      }
-      document.querySelectorAll(".filter-btn").forEach((btn) => {
-        btn.classList.remove("active");
-        if (btn.dataset.filter === "all") {
-          btn.classList.add("active");
-        }
-      });
-      this.renderComponentList();
-    }
-    /**
-     * Refresh the component display
-     */
-    refresh() {
-      this.renderComponentList();
-      this.updateComponentStats();
-    }
-  };
-  window.scanDesignSystem = function() {
-    var _a;
-    (_a = window.designSystemUI) == null ? void 0 : _a.scanDesignSystem();
-  };
-  window.rescanDesignSystem = function() {
-    var _a;
-    (_a = window.designSystemUI) == null ? void 0 : _a.rescanDesignSystem();
-  };
-  window.generateLLMPrompt = function() {
-    var _a;
-    (_a = window.designSystemUI) == null ? void 0 : _a.generateLLMPrompt();
-  };
-  window.enableGeneratorTab = function() {
-    var _a;
-    (_a = window.designSystemUI) == null ? void 0 : _a.enableGeneratorTab();
-  };
-
-  // ui-main.js
-  init_ai_generator_ui();
-
-  // src/ui/core/features/api-settings-ui.js
-  var import_message_handler3 = __toESM(require_message_handler());
-  var import_ui_framework3 = __toESM(require_ui_framework());
-  var APISettingsUI = class {
-    constructor() {
-      this.elements = {
-        apiKeyInput: null,
-        saveBtn: null,
-        testBtn: null,
-        statusContainer: null
-      };
-      this.initialize();
-    }
-    /**
-     * Initialize API settings UI
-     */
-    initialize() {
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", () => this.setupElements());
-      } else {
-        this.setupElements();
-      }
-    }
-    /**
-     * Setup DOM elements and event listeners
-     */
-    setupElements() {
-      this.elements = {
-        apiKeyInput: document.getElementById("apiKey"),
-        saveBtn: document.getElementById("saveBtn"),
-        testBtn: document.getElementById("testBtn"),
-        statusContainer: document.getElementById("connectionStatus")
-      };
-      if (this.elements.apiKeyInput && this.elements.saveBtn && this.elements.testBtn) {
-        this.setupEventListeners();
-        this.setupApiKeyHandling();
-        console.log("\u2705 API Settings UI initialized");
-      } else {
-        console.warn("\u26A0\uFE0F API Settings elements not found");
-      }
-    }
-    /**
-     * Setup event listeners
-     */
-    setupEventListeners() {
-      var _a, _b;
-      (_a = this.elements.saveBtn) == null ? void 0 : _a.addEventListener("click", () => this.saveApiKey());
-      (_b = this.elements.testBtn) == null ? void 0 : _b.addEventListener("click", () => this.testConnection());
-      this.setupApiKeyHandling();
-    }
-    /**
-     * Setup API key input behavior
-     */
-    setupApiKeyHandling() {
-      const input = this.elements.apiKeyInput;
-      if (!input) return;
-      input.addEventListener("focus", function() {
-        if (this.getAttribute("data-has-key") === "true") {
-          this.value = "";
-          this.setAttribute("data-has-key", "false");
-        }
-      });
-      input.addEventListener("input", function() {
-        if (this.value.length > 0) {
-          this.setAttribute("data-has-key", "false");
-        }
-      });
-    }
-    /**
-     * Save API key
-     */
-    async saveApiKey() {
-      const input = this.elements.apiKeyInput;
-      const saveBtn = this.elements.saveBtn;
-      if (!input || !saveBtn) return;
-      const apiKey = input.value.trim();
-      if (input.getAttribute("data-has-key") === "true" && apiKey.includes("\u25CF")) {
-        this.showStatus("\u2139\uFE0F API key already saved", "info");
-        return;
-      }
-      if (!apiKey) {
-        this.showStatus("\u274C Please enter an API key", "error");
-        return;
-      }
-      saveBtn.disabled = true;
-      saveBtn.textContent = "\u{1F4BE} Saving...";
-      import_message_handler3.MessageHandler.sendMessage({
-        type: "save-api-key",
-        payload: apiKey
-      });
-    }
-    /**
-     * Test API connection
-     */
-    async testConnection() {
-      var _a;
-      const testBtn = this.elements.testBtn;
-      if (!testBtn) return;
-      testBtn.disabled = true;
-      testBtn.textContent = "\u{1F50C} Testing...";
-      this.showStatus("\u{1F504} Requesting API key...", "info");
-      try {
-        const apiKey = await this.getApiKeyFromBackend();
-        if (!apiKey) {
-          throw new Error("API key not found. Please save it.");
-        }
-        this.showStatus("\u{1F504} Testing connection with Gemini API...", "info");
-        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: "Hello" }] }]
-          })
-        });
-        if (response.ok) {
-          this.showStatus("\u2705 Connection successful!", "success");
-        } else {
-          const errorData = await response.json();
-          throw new Error(`HTTP ${response.status}: ${((_a = errorData.error) == null ? void 0 : _a.message) || "Unknown error"}`);
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        this.showStatus(`\u274C Error: ${errorMessage}`, "error");
-      } finally {
-        testBtn.disabled = false;
-        testBtn.textContent = "\u{1F50C} Test Connection";
-      }
-    }
-    /**
-     * Get API key from backend
-     */
-    async getApiKeyFromBackend() {
-      this.showStatus("\u{1F504} Getting API key...", "info");
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          window.removeEventListener("message", handler);
-          reject(new Error("Timeout getting API key."));
-        }, 3e3);
-        const handler = (event) => {
-          const msg = event.data.pluginMessage;
-          if (msg && (msg.type === "api-key-found" || msg.type === "api-key-not-found")) {
-            clearTimeout(timeout);
-            window.removeEventListener("message", handler);
-            resolve(msg.payload || null);
-          }
-        };
-        window.addEventListener("message", handler);
-        import_message_handler3.MessageHandler.sendMessage({ type: "get-api-key" });
-      });
-    }
-    /**
-     * Handle API key loaded from storage
-     */
-    handleApiKeyLoaded(apiKey) {
-      const input = this.elements.apiKeyInput;
-      if (!input) return;
-      input.value = "\u25CF".repeat(40);
-      input.setAttribute("data-has-key", "true");
-      this.showStatus("\u2705 API key loaded from previous session", "success");
-    }
-    /**
-     * Handle API key saved successfully
-     */
-    handleApiKeySaved() {
-      const saveBtn = this.elements.saveBtn;
-      const input = this.elements.apiKeyInput;
-      if (saveBtn) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = "\u{1F4BE} Save API Key";
-      }
-      if (input) {
-        input.value = "\u25CF".repeat(40);
-        input.setAttribute("data-has-key", "true");
-      }
-      this.showStatus("\u2705 API key saved successfully!", "success");
-    }
-    /**
-     * Clear all data
-     */
-    clearAllData() {
-      if (confirm("Clear all saved data? This will remove API key and design system cache.")) {
-        import_message_handler3.MessageHandler.sendMessage({ type: "clear-storage" });
-        location.reload();
-      }
-    }
-    /**
-     * Show status message
-     */
-    showStatus(message, type) {
-      if (this.elements.statusContainer) {
-        import_ui_framework3.UIFramework.showStatus(this.elements.statusContainer.id, message, type);
-      }
-    }
-    /**
-     * Clear status message
-     */
-    clearStatus() {
-      if (this.elements.statusContainer) {
-        import_ui_framework3.UIFramework.clearStatus(this.elements.statusContainer.id);
-      }
-    }
-  };
-  window.saveApiKey = function() {
-    var _a;
-    (_a = window.apiSettingsUI) == null ? void 0 : _a.saveApiKey();
-  };
-  window.testGeminiConnection = function() {
-    var _a;
-    (_a = window.apiSettingsUI) == null ? void 0 : _a.testConnection();
-  };
-  window.clearAllData = function() {
-    var _a;
-    (_a = window.apiSettingsUI) == null ? void 0 : _a.clearAllData();
-  };
-
-  // ui-main.js
-  var import_app = __toESM(require_app());
-  console.log("\u{1F3AF} ui-main.js loading...");
-  window.UIFramework = import_ui_framework4.UIFramework;
-  window.StateManager = import_state_manager4.StateManager;
-  window.TabManager = TabManager;
-  window.MessageHandler = import_message_handler4.MessageHandler;
-  window.DesignSystemUI = DesignSystemUI;
-  window.AIGeneratorUI = AIGeneratorUI;
-  window.APISettingsUI = APISettingsUI;
-  window.AIDesignerApp = import_app.AIDesignerApp;
-  window.$ = import_ui_framework4.UIFramework.$;
-  window.byId = import_ui_framework4.UIFramework.byId;
-  window.showStatus = import_ui_framework4.UIFramework.showStatus;
-  window.clearStatus = import_ui_framework4.UIFramework.clearStatus;
-  window.switchTab = import_ui_framework4.UIFramework.switchTab;
-  window.copyToClipboard = import_ui_framework4.UIFramework.copyToClipboard;
-  window.scanDesignSystem = function() {
-    if (window.aidesignerApp) {
-      const designSystemFeature = window.aidesignerApp.getFeature("designSystem");
-      if (designSystemFeature && designSystemFeature.scanDesignSystem) {
-        designSystemFeature.scanDesignSystem();
-      }
-    }
-  };
-  window.rescanDesignSystem = function() {
-    if (window.aidesignerApp) {
-      const designSystemFeature = window.aidesignerApp.getFeature("designSystem");
-      if (designSystemFeature && designSystemFeature.rescanDesignSystem) {
-        designSystemFeature.rescanDesignSystem();
-      }
-    }
-  };
-  window.setActivePlatform = function(platform) {
-    if (window.StateManager) {
-      window.StateManager.setState("currentPlatform", platform);
-    }
-    document.querySelectorAll(".toggle-btn").forEach((btn) => {
-      btn.classList.remove("active");
-    });
-    const platformBtn = document.getElementById(platform + "-toggle");
-    if (platformBtn) {
-      platformBtn.classList.add("active");
-    }
-    console.log("Platform switched to:", platform);
-  };
-  window.createMessageHandler = function(stateManager) {
-    return new import_message_handler4.MessageHandler(stateManager);
-  };
-  window.closeSessionModal = function() {
-    if (window.aidesignerApp) {
-      const sessionFeature = window.aidesignerApp.getFeature("sessionManagement");
-      if (sessionFeature && sessionFeature.closeSessionModal) {
-        sessionFeature.closeSessionModal();
-      }
-    }
-  };
-  window.restoreSession = function() {
-    if (window.aidesignerApp) {
-      const sessionFeature = window.aidesignerApp.getFeature("sessionManagement");
-      if (sessionFeature && sessionFeature.restoreSession) {
-        sessionFeature.restoreSession();
-      }
-    }
-  };
-  window.startNewSession = function() {
-    if (window.aidesignerApp) {
-      const sessionFeature = window.aidesignerApp.getFeature("sessionManagement");
-      if (sessionFeature && sessionFeature.startNewSession) {
-        sessionFeature.startNewSession();
-      }
-    }
-  };
-  window.showAllSessions = function() {
-    if (window.aidesignerApp) {
-      const sessionFeature = window.aidesignerApp.getFeature("sessionManagement");
-      if (sessionFeature && sessionFeature.showAllSessions) {
-        sessionFeature.showAllSessions();
-      }
-    }
-  };
-  window.closeAllSessionsModal = function() {
-    if (window.aidesignerApp) {
-      const sessionFeature = window.aidesignerApp.getFeature("sessionManagement");
-      if (sessionFeature && sessionFeature.closeAllSessionsModal) {
-        sessionFeature.closeAllSessionsModal();
-      }
-    }
-  };
-  window.generateLLMPrompt = function() {
-    if (window.aidesignerApp) {
-      const designSystemFeature = window.aidesignerApp.getFeature("designSystem");
-      if (designSystemFeature && designSystemFeature.generateLLMPrompt) {
-        designSystemFeature.generateLLMPrompt();
-      }
-    }
-  };
-  window.saveApiKey = function() {
-    console.log("\u{1F4BE} Save API Key called");
-    if (window.aidesignerApp) {
-      const apiSettingsFeature = window.aidesignerApp.getFeature("apiSettings");
-      if (apiSettingsFeature && apiSettingsFeature.saveApiKey) {
-        console.log("\u2705 Calling apiSettingsFeature.saveApiKey()");
-        apiSettingsFeature.saveApiKey();
-      } else {
-        console.warn("\u26A0\uFE0F API Settings feature not found or missing saveApiKey method");
-      }
-    } else {
-      console.warn("\u26A0\uFE0F aidesignerApp not found");
-    }
-  };
-  window.testGeminiConnection = function() {
-    console.log("\u{1F50C} Test Connection called");
-    if (window.aidesignerApp) {
-      const apiSettingsFeature = window.aidesignerApp.getFeature("apiSettings");
-      if (apiSettingsFeature && apiSettingsFeature.testConnection) {
-        console.log("\u2705 Calling apiSettingsFeature.testConnection()");
-        apiSettingsFeature.testConnection();
-      } else {
-        console.warn("\u26A0\uFE0F API Settings feature not found or missing testConnection method");
-      }
-    } else {
-      console.warn("\u26A0\uFE0F aidesignerApp not found");
-    }
-  };
-  window.clearAllData = function() {
-    if (window.aidesignerApp) {
-      const apiSettingsFeature = window.aidesignerApp.getFeature("apiSettings");
-      if (apiSettingsFeature && apiSettingsFeature.clearAllData) {
-        apiSettingsFeature.clearAllData();
-      }
-    }
-  };
-  window.startFresh = function() {
-    if (window.aidesignerApp) {
-      const aiGeneratorFeature = window.aidesignerApp.getFeature("aiGenerator");
-      if (aiGeneratorFeature && aiGeneratorFeature.startFresh) {
-        aiGeneratorFeature.startFresh();
-      }
-    }
-  };
-  window.viewCurrentDesignJSON = function() {
-    if (window.aidesignerApp) {
-      const aiGeneratorFeature = window.aidesignerApp.getFeature("aiGenerator");
-      if (aiGeneratorFeature && aiGeneratorFeature.viewCurrentDesignJSON) {
-        aiGeneratorFeature.viewCurrentDesignJSON();
-      }
-    }
-  };
-  window.resetToOriginal = function() {
-    if (window.aidesignerApp) {
-      const aiGeneratorFeature = window.aidesignerApp.getFeature("aiGenerator");
-      if (aiGeneratorFeature && aiGeneratorFeature.resetToOriginal) {
-        aiGeneratorFeature.resetToOriginal();
-      }
-    }
-  };
-  window.clearImageSelection = function() {
-    if (window.aidesignerApp) {
-      const aiGeneratorFeature = window.aidesignerApp.getFeature("aiGenerator");
-      if (aiGeneratorFeature && aiGeneratorFeature.clearImageSelection) {
-        aiGeneratorFeature.clearImageSelection();
-      } else if (window.aidesignerApp.clearImageSelection) {
-        window.aidesignerApp.clearImageSelection();
-      }
-    }
-  };
-  window.generateWithGemini = function() {
-    if (window.aidesignerApp) {
-      const aiGeneratorFeature = window.aidesignerApp.getFeature("aiGenerator");
-      if (aiGeneratorFeature && aiGeneratorFeature.generateWithGemini) {
-        aiGeneratorFeature.generateWithGemini();
-      }
-    }
-  };
-  window.copyGeneratedJSON = function() {
-    if (window.aidesignerApp) {
-      const aiGeneratorFeature = window.aidesignerApp.getFeature("aiGenerator");
-      if (aiGeneratorFeature && aiGeneratorFeature.copyGeneratedJSON) {
-        aiGeneratorFeature.copyGeneratedJSON();
-      }
-    }
-  };
-  window.toggleJSONView = function() {
-    if (window.aidesignerApp) {
-      const aiGeneratorFeature = window.aidesignerApp.getFeature("aiGenerator");
-      if (aiGeneratorFeature && aiGeneratorFeature.toggleJSONView) {
-        aiGeneratorFeature.toggleJSONView();
-      }
-    }
-  };
-  window.generateFromJSON = function() {
-    if (window.aidesignerApp) {
-      const aiGeneratorFeature = window.aidesignerApp.getFeature("aiGenerator");
-      if (aiGeneratorFeature && aiGeneratorFeature.generateFromJSON) {
-        aiGeneratorFeature.generateFromJSON();
-      }
-    }
-  };
-  function initializeUIModules() {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => {
-        try {
-          const app = new import_app.AIDesignerApp();
-          app.initialize();
-          window.aidesignerApp = app;
-          console.log("\u2705 UI modules initialized with AIDesignerApp");
-          console.log("Available features:", Array.from(app.features.keys()));
-          console.log("Global functions check:", {
-            switchTab: typeof window.switchTab,
-            scanDesignSystem: typeof window.scanDesignSystem,
-            setActivePlatform: typeof window.setActivePlatform
-          });
-        } catch (error) {
-          console.error("\u274C App initialization failed:", error);
-          try {
-            if (window.DesignSystemUI) {
-              window.designSystemUI = new window.DesignSystemUI();
-            }
-            if (window.TabManager) {
-              window.tabManager = new window.TabManager();
-            }
-            console.log("\u2705 Fallback: UI modules initialized individually");
-          } catch (fallbackError) {
-            console.error("\u274C Fallback initialization also failed:", fallbackError);
-          }
-        }
-      });
-    } else {
-      try {
-        const app = new import_app.AIDesignerApp();
-        app.initialize();
-        window.aidesignerApp = app;
-        console.log("\u2705 UI modules initialized with AIDesignerApp");
-      } catch (error) {
-        console.error("\u274C App initialization failed:", error);
-        try {
-          if (window.DesignSystemUI) {
-            window.designSystemUI = new window.DesignSystemUI();
-          }
-          if (window.TabManager) {
-            window.tabManager = new window.TabManager();
-          }
-          console.log("\u2705 Fallback: UI modules initialized individually");
-        } catch (fallbackError) {
-          console.error("\u274C Fallback initialization also failed:", fallbackError);
-        }
-      }
-    }
-  }
-  initializeUIModules();
-  console.log("\u2705 UI modules loaded and ready");
+  return require_app();
 })();

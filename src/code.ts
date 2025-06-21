@@ -1,11 +1,12 @@
+/// <reference types="@figma/plugin-typings" />
 // code.ts - COMPLETE MODULAR VERSION WITH VALIDATION ENGINE AND SEMANTIC MAPPING
-import { SessionManager, SessionState, ComponentInfo } from './src/core/session-manager';
-import { ComponentScanner, ScanSession } from './src/core/component-scanner';
-import { FigmaRenderer } from './src/core/figma-renderer';
-import { GeminiAPI, GeminiRequest } from './src/ai/gemini-api';
-import { ValidationEngine, ValidationResult } from './src/core/validation-engine';
-import { SemanticMapper, ComponentSemantics } from './src/core/semantic-mapper';
-import { ComponentScannerEnhanced } from './src/core/component-scanner-enhanced';
+import { SessionManager, SessionState, ComponentInfo } from './core/session-manager';
+import { ComponentScanner, ScanSession } from './core/component-scanner';
+import { FigmaRenderer } from './core/figma-renderer';
+import { GeminiAPI, GeminiRequest } from './ai/gemini-api';
+import { ValidationEngine, ValidationResult } from './core/validation-engine';
+import { SemanticMapper, ComponentSemantics } from './core/semantic-mapper';
+import { ComponentScannerEnhanced } from './core/component-scanner-enhanced';
 
 // Global validation engine instance
 let validationEngine: ValidationEngine;
