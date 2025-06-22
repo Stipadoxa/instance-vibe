@@ -8,9 +8,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
-    "typeRoots": ["./node_modules/@types", "./node_modules/@figma"]
+    "types": ["@figma/plugin-typings"]
   },
   "include": [
-    "src/**/*.ts"
+    "code.ts"
   ]
 }

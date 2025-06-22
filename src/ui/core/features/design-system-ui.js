@@ -1,9 +1,9 @@
 // src/ui/features/design-system-ui.js
 // Design System scanning and management UI for AIDesigner
 
-import { MessageHandler } from '../message-handler.js';
-import { UIFramework } from '../ui-framework.js';
-import { StateManager } from '../state-manager.js';
+import { MessageHandler } from '../core/message-handler.js';
+import { UIFramework } from '../core/ui-framework.js';
+import { StateManager } from '../core/state-manager.js';
 
 export class DesignSystemUI {
     constructor() {

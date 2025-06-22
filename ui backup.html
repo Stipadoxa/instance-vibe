@@ -1,0 +1,2816 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AIDesigner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 12px;
+            background: #ffffff;
+            color: #333;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e1e4e8;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 8px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            color: #586069;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            color: #0366d6;
+            border-bottom-color: #0366d6;
+            background: #ffffff;
+        }
+
+        .tab-btn:hover:not(.active) {
+            color: #24292e;
+            background: #f1f3f4;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            flex: 1;
+            display: none;
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Common Elements */
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section h3 {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #24292e;
+        }
+
+        .btn {
+            background: #0366d6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.2s;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #0256cc;
+        }
+
+        .btn:disabled {
+            background: #8c959f;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #24292e;
+            border: 1px solid #d1d5da;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #f8f9fa;
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 10px;
+            width: auto;
+            margin: 0 4px 0 0;
+        }
+.platform-toggle-container {
+  margin-bottom: 16px;
+}
+
+.toggle-label {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #374151;
+}
+
+.toggle-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6b7280;
+}
+
+.toggle-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.toggle-btn.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #3b82f6;
+  font-weight: 600;
+}
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: #24292e;
+        }
+
+        .input-group input,
+        .input-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5da;
+            border-radius: 4px;
+            font-size: 12px;
+            resize: vertical;
+        }
+
+        .input-group textarea {
+            min-height: 80px;
+        }
+
+        /* Status Messages */
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-bottom: 12px;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        /* Enhanced Component List */
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            padding: 8px 12px;
+            background: #f1f3f4;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 11px;
+        }
+
+        .stat {
+            color: #586069;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #24292e;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .filter-input {
+            flex: 1;
+            padding: 6px 8px;
+            border: 1px solid #d1d5da;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #d1d5da;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+            color: #586069;
+        }
+
+        .filter-btn.active {
+            background: #0366d6;
+            color: white;
+            border-color: #0366d6;
+        }
+
+        .component-list {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #e1e4e8;
+            border-radius: 4px;
+            min-height: 200px;
+        }
+
+        .component-item {
+            padding: 12px;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .component-item:hover {
+            background: #f8f9fa;
+        }
+
+        .component-item:last-child {
+            border-bottom: none;
+        }
+
+        .component-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .component-name {
+            font-weight: 600;
+            font-size: 12px;
+            color: #24292e;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .component-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .type-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 140px;
+        }
+
+        .type-select {
+            flex: 1;
+            padding: 4px 8px;
+            border: 1px solid #d1d5da;
+            border-radius: 3px;
+            background: white;
+            font-size: 11px;
+            color: #586069;
+            cursor: pointer;
+        }
+
+        .type-select:focus {
+            border-color: #0366d6;
+            box-shadow: 0 0 0 2px rgba(3, 102, 214, 0.2);
+            outline: none;
+        }
+
+        .type-select option {
+            padding: 4px 8px;
+        }
+
+        .confidence-badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 500;
+            min-width: 35px;
+            text-align: center;
+        }
+
+        .confidence-high {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .confidence-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .confidence-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .confidence-verified {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .component-actions {
+            display: flex;
+            gap: 4px;
+            margin-left: 8px;
+        }
+
+        .btn-action {
+            padding: 4px 8px;
+            border: 1px solid #d1d5da;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+            color: #586069;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            background: #f8f9fa;
+            border-color: #0366d6;
+            color: #0366d6;
+        }
+
+        .page-info {
+            font-size: 9px;
+            color: #959da5;
+            margin-left: 8px;
+        }
+
+        .status-icon {
+            font-size: 10px;
+            margin-right: 4px;
+        }
+
+        .icon-verified {
+            color: #28a745;
+        }
+
+        .icon-auto {
+            color: #0366d6;
+        }
+
+        .icon-unknown {
+            color: #d73a49;
+        }
+
+        .context-bar {
+            background: #f8f9fa;
+            padding: 8px 16px;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+        }
+
+        .context-info {
+            color: #586069;
+        }
+
+        .generation-area {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .button-row .btn {
+            margin-bottom: 0;
+        }
+
+        .scan-status {
+            background: #f8f9fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .scan-status.loaded {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .scan-status-text {
+            font-size: 11px;
+            color: #24292e;
+            margin-bottom: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+        
+        .image-upload-area {
+            border: 2px dashed #d1d5da;
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .image-upload-area:hover {
+            border-color: #0366d6;
+        }
+
+        .image-upload-area.has-image {
+            border-style: solid;
+            border-color: #28a745;
+            padding: 10px;
+        }
+
+        .upload-prompt {
+            color: #586069;
+            font-size: 12px;
+        }
+
+        .image-preview {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+        .image-preview button {
+            margin-top: 8px;
+        }
+
+        .iteration-context {
+            border: 1px solid #d1ecf1;
+            background: #f1f8ff;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+        .current-design-info h4 {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0366d6;
+            margin: 0 0 8px 0;
+        }
+        .current-design-info h4 span {
+            font-weight: 500;
+            color: #24292e;
+        }
+        .modification-history {
+            max-height: 80px;
+            overflow-y: auto;
+            font-size: 10px;
+            color: #586069;
+            margin-bottom: 10px;
+            padding-left: 15px;
+        }
+        .modification-history li {
+            margin-bottom: 4px;
+        }
+        .iteration-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* NEW: Session Modal Styles */
+        .session-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .session-modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .session-modal-content {
+            position: relative;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 360px;
+            width: calc(100% - 32px);
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .session-modal-header h3 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            color: #24292e;
+        }
+
+        .session-modal-header p {
+            margin: 0 0 16px 0;
+            font-size: 12px;
+            color: #586069;
+        }
+
+        .session-info {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .session-detail {
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+
+        .session-detail strong {
+            color: #24292e;
+            display: inline-block;
+            min-width: 80px;
+        }
+
+        .session-detail span {
+            color: #586069;
+        }
+
+        #sessionHistoryList {
+            margin: 4px 0 0 0;
+            padding-left: 16px;
+            font-size: 10px;
+            color: #586069;
+            max-height: 60px;
+            overflow-y: auto;
+        }
+
+        #sessionHistoryList li {
+            margin-bottom: 2px;
+        }
+
+        .session-modal-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .session-modal-actions .btn {
+            margin-bottom: 0;
+        }
+
+        .session-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .session-item {
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .session-item:hover {
+            background: #f8f9fa;
+            border-color: #0366d6;
+        }
+
+        .session-item.current-file {
+            border-color: #28a745;
+            background: #f1f8ff;
+        }
+
+        .session-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .session-file-name {
+            font-weight: 600;
+            font-size: 12px;
+            color: #24292e;
+        }
+
+        .session-time {
+            font-size: 10px;
+            color: #586069;
+        }
+
+        .session-item-details {
+            font-size: 10px;
+            color: #586069;
+        }
+
+        .session-item-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .session-item-actions .btn {
+            padding: 4px 8px;
+            font-size: 10px;
+            margin: 0;
+            flex: 1;
+        }
+
+        .current-file-badge {
+            background: #28a745;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 500;
+        }
+        .toggle-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f3f4f6;
+    color: #9ca3af;
+}
+    </style>
+</head>
+<body>
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('design-system')">🔍 Design System</button>
+        <button class="tab-btn" onclick="switchTab('api-settings')">⚙️ API Settings</button>
+        <button class="tab-btn" onclick="switchTab('ai-generator')" id="generatorTab" disabled>💬 AI Generator</button>
+    </div>
+
+    <!-- Session Restoration Modal -->
+    <div class="session-modal" id="sessionModal" style="display: none;">
+        <div class="session-modal-backdrop" onclick="closeSessionModal()"></div>
+        <div class="session-modal-content">
+            <div class="session-modal-header">
+                <h3>🔄 Found Previous Work</h3>
+                <p>There's unfinished design work in this file</p>
+            </div>
+            
+            <div class="session-modal-body">
+                <div class="session-info">
+                    <div class="session-detail">
+                        <strong>Frame:</strong> <span id="sessionFrameName"></span>
+                    </div>
+                    <div class="session-detail">
+                        <strong>Last modified:</strong> <span id="sessionLastModified"></span>
+                    </div>
+                    <div class="session-detail">
+                        <strong>History:</strong> 
+                        <ul id="sessionHistoryList"></ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="session-modal-actions">
+                <button class="btn" onclick="restoreSession()">📂 Continue Work</button>
+                <button class="btn btn-secondary" onclick="startNewSession()">🗂️ Start Fresh</button>
+                <button class="btn btn-secondary btn-small" onclick="showAllSessions()">👁️ All Sessions</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- All Sessions Modal -->
+    <div class="session-modal" id="allSessionsModal" style="display: none;">
+        <div class="session-modal-backdrop" onclick="closeAllSessionsModal()"></div>
+        <div class="session-modal-content">
+            <div class="session-modal-header">
+                <h3>📁 All Active Sessions</h3>
+                <p>Select a session to view or manage</p>
+            </div>
+            
+            <div class="session-modal-body">
+                <div class="session-list" id="allSessionsList">
+                    <!-- Dynamically generated by JS -->
+                </div>
+            </div>
+            
+            <div class="session-modal-actions">
+                <button class="btn btn-secondary" onclick="closeAllSessionsModal()">❌ Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 1: Design System -->
+    <div class="tab-content active" id="design-system">
+        <div class="scan-status" id="scanStatusContainer">
+            <div class="scan-status-text" id="scanStatusText">No design system scanned yet</div>
+            <button class="btn btn-secondary btn-small" onclick="rescanDesignSystem()" id="rescanBtn" style="display: none;">🔄 Re-scan</button>
+        </div>
+
+        <div class="section">
+            <h3>Scan Components</h3>
+            <button class="btn" onclick="scanDesignSystem()" id="scanBtn">🔍 Scan Design System</button>
+        </div>
+
+        <div class="section" id="componentsSection" style="display: none;">
+            <h3>Found Components</h3>
+            
+            <div class="stats-bar" id="statsBar">
+                <div class="stat">Total: <span class="stat-value" id="totalCount">0</span></div>
+                <div class="stat">High confidence: <span class="stat-value" id="highConfCount">0</span></div>
+                <div class="stat">Need review: <span class="stat-value" id="lowConfCount">0</span></div>
+                <div class="stat">Verified: <span class="stat-value" id="verifiedCount">0</span></div>
+            </div>
+
+            <div class="filter-bar">
+                <input type="text" class="filter-input" placeholder="Search components..." id="searchInput">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="unknown">Unknown</button>
+                <button class="filter-btn" data-filter="low">Low Conf</button>
+                <button class="filter-btn" data-filter="verified">Verified</button>
+            </div>
+            
+            <div class="component-list" id="componentsList"></div>
+        </div>
+
+        <div class="section" id="promptSection" style="display: none;">
+            <h3>LLM Prompt</h3>
+            <button class="btn btn-secondary" onclick="generateLLMPrompt()">📋 Generate & Copy Prompt</button>
+        </div>
+    </div>
+
+    <!-- Tab 2: API Settings -->
+    <div class="tab-content" id="api-settings">
+        <div class="section">
+            <h3>Gemini API Configuration</h3>
+            <div class="input-group">
+                <label for="apiKey">API Key:</label>
+                <input type="password" id="apiKey" placeholder="Enter your Gemini API key">
+            </div>
+            <button class="btn" onclick="saveApiKey()" id="saveBtn">💾 Save API Key</button>
+        </div>
+
+        <div class="section">
+            <h3>Connection Test</h3>
+            <button class="btn btn-secondary" onclick="testGeminiConnection()" id="testBtn">🔌 Test Connection</button>
+            <div id="connectionStatus"></div>
+        </div>
+
+        <div class="section">
+            <h3>Debug Options</h3>
+            <button class="btn btn-secondary btn-small" onclick="clearAllData()">🗑️ Clear All Data</button>
+        </div>
+    </div>
+
+    <!-- Tab 3: AI Generator -->
+    <div class="tab-content" id="ai-generator">
+        <div class="context-bar" id="contextBar">
+            <span class="context-info" id="currentContext">Ready for new UI</span>
+            <button class="btn btn-secondary btn-small" onclick="startFresh()" id="resetBtn">🗂️ New UI</button>
+        </div>
+
+        <!-- Iteration Context Area -->
+        <div class="iteration-context" id="iterationContext" style="display: none;">
+            <div class="current-design-info">
+                <h4>Modifying: <span id="currentDesignName"></span></h4>
+                <ul class="modification-history" id="modHistory">
+                    <li>Original design generated.</li>
+                </ul>
+            </div>
+            <div class="iteration-controls">
+                <button class="btn btn-secondary btn-small" onclick="viewCurrentDesignJSON()">👁️ View Current JSON</button>
+                <button class="btn btn-secondary btn-small" onclick="resetToOriginal()">↩️ Reset to Original</button>
+            </div>
+        </div>
+    <!-- INSERT PLATFORM TOGGLE HERE -->
+    <div class="platform-toggle-container">
+        <label class="toggle-label">Platform:</label>
+        <div class="toggle-buttons">
+            <button id="mobile-toggle" class="toggle-btn active" data-platform="mobile">
+                📱 Mobile
+            </button>
+            <button id="desktop-toggle" class="toggle-btn" data-platform="desktop" disabled>
+                🖥️ Desktop <span style="font-size: 9px; opacity: 0.7;">(Soon)</span>
+            </button>
+        </div>
+    </div>
+    <!-- END PLATFORM TOGGLE -->
+        <!-- Image Upload Section -->
+        <div class="section">
+            <h3>Reference Image (Optional)</h3>
+            <div class="image-upload-area" id="imageUploadArea">
+                <input type="file" id="imageInput" accept="image/jpeg, image/png, image/webp, image/gif" style="display: none;">
+                <div class="upload-prompt" id="uploadPrompt">
+                    📷 Click to upload or drag & drop a reference image
+                </div>
+                <div class="image-preview" id="imagePreview" style="display: none;">
+                    <img id="previewImg" style="max-width: 100%; max-height: 150px; border-radius: 4px;">
+                    <button class="btn btn-secondary btn-small" onclick="clearImageSelection()">❌ Remove Image</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="generation-area">
+                <div class="input-group">
+                    <label for="userPrompt" id="userPromptLabel">Describe the UI you want to create:</label>
+                    <textarea id="userPrompt" placeholder="create a login form with email and password fields..."></textarea>
+                </div>
+                
+                <div class="button-row">
+                    <button class="btn" onclick="generateWithGemini()" id="generateBtn">🪄 Generate UI</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="generationStatus"></div>
+
+        <!-- JSON Debug Section -->
+        <div class="section" id="jsonDebugSection" style="display: none;">
+            <h3>Generated JSON</h3>
+            <div class="button-row">
+                <button class="btn btn-secondary btn-small" onclick="copyGeneratedJSON()">📋 Copy JSON</button>
+                <button class="btn btn-secondary btn-small" onclick="toggleJSONView()">👁️ Show/Hide</button>
+            </div>
+            <pre id="jsonOutput" style="display: none; background: #f6f8fa; border: 1px solid #d1d5da; border-radius: 4px; padding: 12px; font-size: 11px; overflow-x: auto; max-height: 300px; overflow-y: auto; font-family: 'Monaco', 'Consolas', monospace;"></pre>
+        </div>
+
+        <!-- Manual JSON input as fallback -->
+        <div class="section" style="margin-top: 32px; border-top: 1px solid #e1e4e8; padding-top: 16px;">
+            <h3>Manual Mode (Fallback)</h3>
+            <div class="input-group">
+                <label for="jsonInput">Paste JSON directly:</label>
+                <textarea id="jsonInput" placeholder='{"layoutContainer": {...}, "items": [...]}'></textarea>
+            </div>
+            <button class="btn btn-secondary" onclick="generateFromJSON()">📄 Generate from JSON</button>
+        </div>
+    </div>
+
+    <!-- Load pattern intelligence before main script -->
+    <script src="component-patterns.js"></script>
+    
+    <!-- EMBEDDED PROMPT GENERATOR CLASS -->
+    <script>
+        if(typeof window!=="undefined"&&window.PatternDetector);else if(typeof require!=="undefined"){const{PatternDetector:e}=require("./component-patterns.js")}class AIDesignerPromptGenerator{constructor(){this.basePersonality=this.buildUXExpertPersonality()}generatePrompt(e,t=[],s=[],i=!1){if(i)var n=this.generateImageAnalysisPrompt(e,t);else{const s=this.preprocessForCommonIssues(e),i=this.buildExpertSystemPrompt(t),o=this.generateContextualGuidance(s),r=this.enhanceUserRequest(s,o);var n={systemPrompt:i,userPrompt:r,fullPrompt:`${i}\n\n${r}\n\nRespond ONLY with valid JSON, without any additional text, comments, or markdown.`,guidance:o}}if("undefined"!=typeof PatternDetector){const t=PatternDetector.detect(e);t.length>0&&(n.userPrompt+=PatternDetector.generateGuidance(t,e),n.fullPrompt=`${n.systemPrompt}\n\n${n.userPrompt}\n\nRespond ONLY with valid JSON, without any additional text, comments, or markdown.`)}return n}generateModificationPrompt(e,t,s){const i=this.buildModificationSystemPrompt(t,e,s);return{systemPrompt:"",userPrompt:"",fullPrompt:`${i}\n\nRespond ONLY with valid JSON, without any additional text, comments, or markdown.`,guidance:[]}}buildModificationSystemPrompt(e,t,s){const i=this.analyzeAvailableComponents(s),n=this.buildDesignSystemContext(i);return`You are an expert UX Designer modifying an existing UI design based on a user's request.
+
+## Your Task:
+Modify the "CURRENT DESIGN" JSON structure according to the "USER REQUEST". Return the COMPLETE, new JSON structure.
+
+${n}
+
+---
+
+## CURRENT DESIGN:
+\`\`\`json
+${JSON.stringify(e,null,2)}
+\`\`\`
+
+---
+
+## USER REQUEST:
+"${t}"
+
+---
+
+## MODIFICATION RULES (MANDATORY):
+1.  **Preserve Unchanged Elements:** Keep ALL elements and properties that were not mentioned in the user request exactly as they are in the "CURRENT DESIGN". Do not alter or remove them.
+2.  **Maintain Component IDs:** For all unchanged components, you MUST use the same \`componentNodeId\` as in the original JSON.
+3.  **Apply Specific Changes:** Only modify, add, or remove the elements and properties that the user explicitly requested.
+4.  **Logical Placement:** When adding new items, place them in a logical position relative to other elements.
+5.  **Return Full Structure:** Your final output must be the ENTIRE JSON object, including both the modified and the preserved parts.
+
+## 🔧 VARIANT MODIFICATION RULES:
+- **When modifying variants**: Always include the complete variants object with ALL required properties
+- **For leading/trailing icons**: Use "Leading": "Icon" and "Trailing": "Icon"
+- **For removing icons**: Use "Leading": "None" and "Trailing": "None"  
+- **Always validate**: Ensure all variant combinations are complete and valid
+
+## ✅ CORRECT Variant Modification Example:
+\`\`\`json
+{
+  "type": "list-item",
+  "componentNodeId": "10:123",
+  "properties": {
+    "text": "Settings item",
+    "horizontalSizing": "FILL",
+    "variants": {
+      "Condition": "1-line",
+      "Leading": "Icon",
+      "Trailing": "Icon"
+    }
+  }
+}
+\`\`\`
+
+${this.getJSONStructureGuide()}
+`}generateImageAnalysisPrompt(e,t){console.log("🖼️ Generating image analysis prompt.");const s=this.analyzeAvailableComponents(t),i=this.buildDesignSystemContext(s),n=`${this.basePersonality}
+
+## 🖼️ IMAGE ANALYSIS TASK
+
+You are analyzing a UI screenshot, wireframe, or mockup. Your expert UX designer skills allow you to:
+
+1.  **Understand Layout Patterns**: Identify how elements are arranged (vertical stack, horizontal sections, grid, etc.).
+2.  **Map UI Components**: Recognize buttons, inputs, cards, text, images, and other common UI elements.
+3.  **Read Visual Hierarchy**: Understand what's primary vs. secondary content based on size, position, and emphasis.
+4.  **Extract Information Architecture**: See how content is grouped and organized into logical sections.
+
+${i}
+
+## 🎯 Your Task:
+Analyze the provided user interface image and the user's text request. Your goal is to recreate a similar layout and structure using the available components from the design system.
+
+${this.getJSONStructureGuide()}
+
+## 🧠 Image Analysis Guidelines:
+- Focus on the **LAYOUT, STRUCTURE, and HIERARCHY** of the image, not the exact colors, fonts, or pixel-perfect styling.
+- **Map the visual elements** in the image to the most appropriate components available in the design system.
+- If the user provides a text prompt, it **overrides or clarifies** the image. For example, if the image shows a "Sign Up" button but the user asks for a "Login" page, you should create a login page.
+- Maintain the same **information hierarchy and grouping** you see in the image.
+- Use nested \`layoutContainer\`s to represent columns, rows, and grouped sections from the image.
+- Infer appropriate **spacing and padding** based on the visual relationships in the image.
+
+${this.getJSONExamples()}
+
+## User's Request:
+${e||"Recreate the layout from the provided image."}`;return{systemPrompt:"",userPrompt:"",fullPrompt:`${n}\n\nRespond ONLY with valid JSON, without any additional text, comments, or markdown.`,guidance:[]}}buildExpertSystemPrompt(e){const t=this.analyzeAvailableComponents(e),s=this.buildDesignSystemContext(t);return`${this.basePersonality}
+
+${s}
+
+${this.getJSONStructureGuide()}
+
+${this.getUXPrinciples()}
+
+${this.getJSONExamples(e)}`}buildUXExpertPersonality(){return`You are an experienced Senior UX Designer with 10+ years of experience in creating interfaces for web and mobile applications. You have deep knowledge in:
+
+## Your Expertise:
+- **User Experience Design**: You understand user needs and create intuitive interfaces
+- **Information Architecture**: You can structure content logically and clearly
+- **Interaction Design**: You know how to create smooth and effective interactions
+- **Accessibility**: You always consider the needs of users with disabilities
+- **Design Systems**: You understand the importance of consistency and scalability
+- **Mobile & Responsive Design**: Expert in adaptive and mobile-first approaches
+- **Modern UI Patterns**: You know modern trends and best practices (Material Design, Human Interface Guidelines, etc.)
+
+## Your Approach:
+- Always ask yourself "Why?" before creating something
+- Think about the entire user journey, not just a single screen
+- Balance aesthetics with functionality
+- Consider technical limitations, but don't let them constrain the UX
+- Create interfaces that "breathe" - with proper spacing and hierarchy
+
+## Your Task:
+Create structured JSON to generate UI in Figma, using components from the user's design system. Apply your UX knowledge to create logical, user-friendly, and beautiful interfaces.`}preprocessForCommonIssues(e){const t=[];return/upload.*button|button.*upload|form.*file.*submit/i.test(e)&&t.push("Keep submit/send buttons as separate items in the main items array, NOT nested inside upload containers"),/captcha.*button|verification.*submit/i.test(e)&&t.push("CAPTCHA sections and submit buttons must be separate objects in the items array"),t.length>0?e+'\n\n// ⚠️ CRITICAL WARNINGS:\n'+t.map(e=>`// - ${e}`).join("\n"):e}analyzeAvailableComponents(e){if(!e||0===e.length)return{byType:{},isEmpty:!0};const t={},s={};return e.forEach(e=>{e.confidence>=.7||e.isVerified?(t[e.suggestedType]||(t[e.suggestedType]=[]),t[e.suggestedType].push(e),s[e.suggestedType]={hasVariants:!(!e.variants||!e.variants.length>0),hasTextLayers:!(!e.textLayers||!e.textLayers.length>0),variants:e.variants||[],variantDetails:e.variantDetails||{},textLayers:e.textLayers||[]}):void 0}),{byType:t,capabilities:s,totalCount:Object.keys(t).length,isEmpty:!1}}buildDesignSystemContext(e){if(e.isEmpty)return`## Available Components:
+*Design system not loaded. Please scan your design system first.*
+    
+IMPORTANT: You cannot use placeholder IDs. Each component must have a real componentNodeId from the scanned design system.`;let t=`## Your Design System (${e.totalCount} component types):
+    
+*As a Senior UX Designer, you understand that this design system is your tool for creating a consistent experience. Use components wisely, considering their purpose and capabilities.*
+    
+**CRITICAL**: You MUST use the exact componentNodeId values provided below. Do NOT use placeholder IDs like "button_id" or "input_id_1".
+    
+`;const s=this.groupComponentsByUXPurpose(e.byType);return Object.entries(s).forEach(([s,i])=>{if(i.length>0){t+=`### ${s}\n`,i.forEach(s=>{const i=e.capabilities[s.suggestedType];t+=`- **${s.suggestedType}** → Use componentNodeId: "${s.id}"`,i?.variantDetails&&Object.keys(i.variantDetails).length>0?(t+="\n  - Variants available:\n",Object.entries(i.variantDetails).forEach(([e,s])=>{t+=`    - ${e}: [${s.map(e=>`"${e}"`).join(", ")}]\n`;const i=e.toLowerCase();i.includes("condition")||i.includes("layout")?t+=`      💡 Layout control: ${s.includes("1-line")?'"1-line" = single line, ':""}${s.includes("2-line")?'"2-line" = detailed view':""}\n`:i.includes("leading")||i.includes("start")?t+="      💡 Leading element: \"Icon\" = shows leading icon, \"None\" = text only\n":i.includes("trailing")||i.includes("end")?t+="      💡 Trailing element: \"Icon\" = shows trailing icon/chevron, \"None\" = no trailing element\n":i.includes("state")||i.includes("status")?t+="      💡 Component state: controls enabled/disabled/selected appearance\n":i.includes("size")?t+="      💡 Size control: affects padding, text size, and touch targets\n":(i.includes("type")||i.includes("style")||i.includes("emphasis"))&&(t+="      💡 Visual emphasis: controls hierarchy and visual weight\n")}),t+="\n  - ⚡ QUICK VARIANT GUIDE:\n",t+='    - "single line" request → use "Condition": "1-line"\n',t+='    - "with icon" request → use "Leading": "Icon"\n',t+='    - "arrow" or "chevron" → use "Trailing": "Icon"\n',t+='    - "simple" or "minimal" → omit variants to use defaults\n',t+="    - Only specify variants you want to change from defaults\n"):i?.hasVariants&&(t+=` - Variants: ${i.variants.join(", ")}`),i?.hasTextLayers&&(t+=`  - Text layers: ${i.textLayers.map(e=>`"${e}"`).join(", ")}`),t+="\n"}),t+="\n"}}),t+=`**Remember**: Always use the exact componentNodeId values listed above. Never use placeholder IDs.
+
+## ✅ CORRECT JSON Example (List Item):
+\`\`\`json
+{
+  "layoutContainer": { "name": "Settings", "layoutMode": "VERTICAL", "width": 360, "itemSpacing": 8 },
+  "items": [
+    { 
+      "type": "list-item", 
+      "componentNodeId": "${this.getExampleId(e,"list-item")}", 
+      "properties": {
+        "text": "Change language",
+        "supporting-text": "Select your preferred language",
+        "trailing-text": "English",
+        "horizontalSizing": "FILL"
+      } 
+    }
+  ]
+}
+\`\`\`
+
+## 🎯 Property Name Guidelines:
+- **Main content**: Use \`"text"\` or \`"headline"\`
+- **Secondary content**: Use \`"supporting-text"\` or \`"subtitle"\`  
+- **End content**: Use \`"trailing-text"\` or \`"value"\`
+- **Never use**: Property names with spaces unless they match exact text layer names
+    
+## ❌ WRONG - Never use these:
+- "input_id", "input_id_1", "button_id" (placeholder IDs)
+- "component_123" (made-up IDs)`,t}groupComponentsByUXPurpose(e){const t={"🎯 User Actions":[],"📝 Data Input":[],"🧭 Navigation":[],"📋 Content Display":[],"💬 Feedback":[],"📐 Page Structure":[]},s={"🎯 User Actions":["button","fab","chip","link","icon-button"],"📝 Data Input":["input","textarea","select","checkbox","radio","switch","slider","searchbar","form","upload"],"🧭 Navigation":["appbar","tab","tabs","breadcrumb","pagination","navigation","sidebar","menu"],"📋 Content Display":["card","list","list-item","avatar","image","text","header","badge","icon"],"💬 Feedback":["snackbar","alert","dialog","modal","progress","skeleton","tooltip"],"📐 Page Structure":["container","grid","divider","spacer","frame"]};return Object.entries(e).forEach(([e,i])=>{let n=!1;for(const[o,r]of Object.entries(s))if(r.includes(e)){t[o].push(...i),n=!0;break}n||t["📐 Page Structure"].push(...i)}),t}generateContextualGuidance(e){const t=[],s=e.toLowerCase();return this.containsKeywords(s,["form","login","register","signin","password","email"])&&t.push("Forms should be simple and clear. Place required fields first, and group related fields."),this.containsKeywords(s,["navigat","menu","tab","section"])&&t.push("Navigation should be intuitive. No more than 7±2 items per level. Indicate the current location."),this.containsKeywords(s,["list","card","item","product"])&&t.push("Lists should have a scannable structure: important information at the top, secondary at the bottom. Ensure sufficient spacing between items."),this.containsKeywords(s,["mobile","phone","adaptive","responsive"])&&t.push("Mobile-first approach: large touch targets (min. 44px), easy thumb access, vertical orientation."),this.containsKeywords(s,["dashboard","panel","stat","analytic"])&&t.push("Dashboards: most important information at the top and left, use progressive disclosure for details."),this.containsKeywords(s,["settings","preferences","account","options","configure"])&&(t.push("Settings screens should show current values for quick reference. Use 'trailing-text' to display current language, phone number, email, notification status, etc."),t.push("Group related settings logically. Show action hints like 'What is it?' for premium features, current values for user data.")),this.containsKeywords(s,["single line","one line","1 line","minimal","simple"])&&t.push('For single line layouts, use "Condition": "1-line" variant.'),this.containsKeywords(s,["two line","double line","2 line","detailed"])&&t.push('For two line layouts, use "Condition": "2-line" variant.'),this.containsKeywords(s,["with icon","show icon","icon before"])&&t.push('To show leading icons, use "Leading": "Icon" variant.'),this.containsKeywords(s,["no icon","without icon","text only"])&&t.push('To hide icons, use "Leading": "None" variant.'),this.containsKeywords(s,["trailing","end icon","arrow","chevron"])&&t.push('To show trailing elements, use "Trailing": "Icon" variant.'),t}enhanceUserRequest(e,t){let s=e;return t.length>0&&(s+="\n\n// As an experienced UX designer, consider these principles:",t.forEach(e=>{s+=`\n// - ${e}`})),s+="\n\n// Apply your UX knowledge to create a logical, user-friendly, and aesthetically pleasing interface.",s}getUXPrinciples(){return`## Your UX Principles (always follow them):
+
+### 1. Hierarchy and Importance
+- The most important elements are the largest and highest
+- Use size, color, and position to create a visual hierarchy
+- The primary action (Primary CTA) must be obvious
+
+### 2. Spacing and Breathing Room
+- Use consistent spacing: 8px, 16px, 24px, 32px
+- Let the content "breathe" - don't cram everything onto one screen
+- Group related elements through proximity
+
+### 3. Cognitive Load
+- Don't overload the user with options
+- Progressive disclosure: show the main things, hide the details
+- Make the next steps obvious
+
+### 4. Accessibility
+- Minimum touch target size: 44px
+- Sufficient contrast for text
+- Logical tabbing order
+
+### 5. User Mental Models
+- Use familiar patterns (don't reinvent the wheel)
+- Place elements where they are expected
+- Consistency throughout the entire product`}getJSONStructureGuide(){return`## JSON Structure & Rules:
+
+### Basic structure:
+\`\`\`json
+{
+  "layoutContainer": {
+    "name": "Container Name",
+    "layoutMode": "VERTICAL",
+    "width": 360,           // Always specify width for mobile
+    "paddingTop": 24,
+    "paddingBottom": 24,
+    "paddingLeft": 16,
+    "paddingRight": 16,
+    "itemSpacing": 16
+  },
+  "items": [
+    // ... components go here
+  ]
+}
+\`\`\`
+
+### UX Considerations for JSON:
+- **layoutMode**: VERTICAL is easier to scan for most content.
+- **itemSpacing**: Use 16px for related items, 24px+ for separating sections.
+- **horizontalSizing**: "FILL" is crucial for primary actions (buttons) and inputs.
+- **items order**: This defines the visual and accessibility order. Top-to-bottom matters.
+
+### Component Selection Rules:
+- **ALWAYS use the exact componentNodeId from the design system list above**
+- Never use placeholder IDs like "button_id", "input_id", etc.
+- File upload areas: Use layoutContainer with icon + text, NOT image component
+- Secondary buttons: Use button with variants like "Medium" emphasis
+- CAPTCHA/forms: Use input or form components, NOT list-item
+- All form inputs: Must have horizontalSizing: "FILL"
+- Icon actions: Use icon-button if available, or button with icon property
+
+### Text Property Rules:
+- **Primary text**: Use \`"text"\` or \`"headline"\` for main content
+- **Secondary text**: Use \`"supporting-text"\` for descriptions
+- **Action/Value text**: Use \`"trailing-text"\` for status, values, or action hints
+- **Property names should be lowercase with hyphens**: \`"supporting-text"\` not \`"Supporting text"\`
+- **Avoid variant names as text content**: Don't use \`"Headline": "text content"\`
+
+### Enhanced List Item Example:
+\`\`\`json
+{
+  "type": "list-item",
+  "componentNodeId": "10:123",
+  "properties": {
+    "text": "Change language",           // Main headline
+    "supporting-text": "Select your preferred language",  // Optional description
+    "trailing-text": "English",   // Current value or action hint
+    "horizontalSizing": "FILL",
+    "variants": {
+      "Condition": "1-line",       // Component variants in separate object
+      "Leading": "Icon",
+      "Trailing": "Icon"
+    }
+  }
+}
+\`\`\`
+
+### Variant Usage Rules:
+- **Variants must be in a separate "variants" object inside properties**
+- **NEVER mix variants with regular properties at the same level**
+- Variant properties are case-sensitive: "Condition" not "condition"
+- Variant values are case-sensitive: "1-line" not "1-Line"
+
+### ✅ CORRECT Variant Structure:
+\`\`\`json
+{
+  "type": "list-item",
+  "componentNodeId": "10:123",
+  "properties": {
+    "text": "Personal details",
+    "horizontalSizing": "FILL",
+    "variants": {
+      "Condition": "1-line",
+      "Leading": "Icon", 
+      "Trailing": "Icon"
+    }
+  }
+}
+\`\`\`
+
+### ❌ WRONG - Never do this:
+\`\`\`json
+{
+  "properties": {
+    "text": "Personal details",
+    "Condition": "1-line",    // WRONG: variants mixed with properties
+    "Leading": "Icon"         // WRONG: should be in variants object
+  }
+}
+\`\`\`
+
+### Example with variants:
+\`\`\`json
+{
+  "type": "button",
+  "componentNodeId": "10:123",
+  "properties": {
+    "text": "Submit",
+    "horizontalSizing": "FILL",
+    "variants": {
+      "Type": "Primary",    // Must match exactly from available options
+      "Size": "Large",      // Case-sensitive!
+      "State": "enabled"    // Default states are usually "enabled" or "default"
+    }
+  }
+}
+\`\`\`
+
+### Button Hierarchy:
+- Primary actions (Submit, Send): "High" emphasis, horizontalSizing: "FILL"
+- Secondary actions (Add more): "Medium" emphasis, horizontalSizing: "AUTO"
+- Icon actions: icon-button or button with icon
+
+### CRITICAL OBJECT SEPARATION RULES:
+Each item in the "items" array must be a complete, separate object.
+
+✅ CORRECT - Separate objects:
+\`\`\`json
+{
+  "items": [
+    { 
+      "type": "layoutContainer",
+      "name": "Section1",
+      "items": []
+    },
+    { 
+      "type": "button",
+      "componentNodeId": "10:3907",  // Real ID from design system
+      "properties": {}
+    }
+  ]
+}
+\`\`\`
+
+❌ WRONG - Placeholder IDs:
+\`\`\`json
+{
+  "items": [
+    { 
+      "type": "button",
+      "componentNodeId": "button_id",  // NEVER use placeholder IDs!
+      "properties": {}
+    }
+  ]
+}
+\`\`\``}getJSONExamples(e){const t=t=>{if(!e||!e.byType||e.isEmpty)return`${t}_actual_id`;const s=e.byType[t];return s&&Array.isArray(s)&&s.length>0?s[0].id:`${t}_actual_id`},s=t("header"),i=t("input"),n=t("button"),o=t("text"),r=t("image"),a=t("list-item");return`## Examples (with UX rationale):
+
+### Login Form (classic user flow):
+\`\`\`json
+{
+  "layoutContainer": {
+    "name": "Login Form",
+    "layoutMode": "VERTICAL",
+    "width": 360,
+    "paddingTop": 32,
+    "paddingBottom": 32,
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "itemSpacing": 20
+  },
+  "items": [
+    { "type": "header", "componentNodeId": "${s}", "properties": {"text": "Sign In"} },
+    { "type": "input", "componentNodeId": "${i}", "properties": {"text": "Email", "horizontalSizing": "FILL"} },
+    { "type": "input", "componentNodeId": "${i}", "properties": {"text": "Password", "horizontalSizing": "FILL"} },
+    { 
+    "type": "button", 
+    "componentNodeId": "${n}", 
+    "properties": {
+        "text": "Sign In", 
+        "horizontalSizing": "FILL",
+        "variants": {
+            "State": "enabled",
+            "Style": "selected"
+        }
+    } 
+}
+  ]
+}
+\`\`\`
+*UX decision: A title for context, full-width inputs for easy tapping, and the primary action button at the bottom for a natural flow.*
+
+### Complex Form with File Upload and Submit Button:
+\`\`\`json
+{
+  "layoutContainer": {
+    "name": "Upload Form",
+    "layoutMode": "VERTICAL",
+    "width": 360,
+    "paddingTop": 24,
+    "paddingBottom": 24,
+    "paddingLeft": 16,
+    "paddingRight": 16,
+    "itemSpacing": 16
+  },
+  "items": [
+    { "type": "header", "componentNodeId": "${s}", "properties": {"text": "Upload Documents"} },
+    {
+      "type": "layoutContainer",
+      "name": "FileUploadSection",
+      "items": [
+        { "type": "text", "componentNodeId": "${o}", "properties": {"text": "Upload your file"} },
+        { "type": "image", "componentNodeId": "${r}", "properties": {"icon": "upload"} }
+      ]
+    },
+    {
+      "type": "layoutContainer",
+      "name": "CaptchaSection",
+      "items": [
+        { "type": "text", "componentNodeId": "${o}", "properties": {"text": "CAPTCHA placeholder"} }
+      ]
+    },
+    {
+      "type": "button",
+      "componentNodeId": "${n}",
+      "properties": { "text": "Submit", "horizontalSizing": "FILL" }
+    }
+  ]
+}
+\`\`\`
+*UX decision: Each major section (file upload, captcha, submit button) is a separate item in the main "items" array. The submit button is NOT nested inside any other container.*
+
+### Settings Screen with Smart Variants:
+\`\`\`json
+{
+  "layoutContainer": {
+    "name": "Settings Screen",
+    "layoutMode": "VERTICAL",
+    "width": 360,
+    "itemSpacing": 8
+  },
+  "items": [
+    {
+      "type": "list-item",
+      "componentNodeId": "${a}",
+      "properties": {
+        "text": "Personal details",
+        "horizontalSizing": "FILL",
+        "variants": {
+          "Condition": "1-line"
+        }
+      }
+    },
+    {
+      "type": "list-item",
+      "componentNodeId": "${a}",
+      "properties": {
+        "text": "Change language",
+        "trailing-text": "English",
+        "horizontalSizing": "FILL",
+        "variants": {
+          "Condition": "2-line",
+          "Trailing": "Icon"
+        }
+      }
+    }
+  ]
+}
+\`\`\`
+*UX Note: You only need to specify variants you want to change. The plugin automatically fills in defaults for other variant properties.*
+
+**IMPORTANT**: Notice how we use the actual componentNodeId values from your design system, NOT placeholder IDs.`}getExampleId(e,t){if(!e||!e.byType||e.isEmpty)return`${t}_actual_id`;const s=e.byType[t];return s&&Array.isArray(s)&&s.length>0?s[0].id:`${t}_actual_id`}containsKeywords(e,t){return t.some(t=>e.includes(t))}}
+"undefined"!=typeof window&&(window.AIDesignerPromptGenerator=AIDesignerPromptGenerator);
+    </script>
+    
+    <!-- MAIN UI SCRIPT WITH SESSION MANAGEMENT -->
+    <script>
+        // Platform toggle functionality
+let currentPlatform = 'mobile'; // Default to mobile
+
+document.getElementById('mobile-toggle').addEventListener('click', function() {
+  setActivePlatform('mobile');
+});
+
+document.getElementById('desktop-toggle').addEventListener('click', function() {
+  setActivePlatform('desktop');
+});
+
+function setActivePlatform(platform) {
+  currentPlatform = platform;
+  
+  // Update button states
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.getElementById(platform + '-toggle').classList.add('active');
+  
+  // Just log for now (no persistence needed)
+console.log('Platform switched to:', platform);
+  
+  console.log('Platform switched to:', platform);
+}
+
+
+        // Global Variables and Core Functions
+        const componentTypes = {
+            'Navigation': ['appbar', 'navbar', 'tab', 'tabs', 'breadcrumb', 'pagination', 'navigation', 'sidebar', 'bottom-navigation', 'menu'],
+            'Input': ['button', 'input', 'textarea', 'select', 'checkbox', 'radio', 'switch', 'slider', 'searchbar', 'chip'],
+            'Display': ['card', 'list', 'list-item', 'avatar', 'image', 'icon', 'text', 'header', 'badge', 'tooltip'],
+            'Feedback': ['snackbar', 'alert', 'dialog', 'modal', 'progress', 'skeleton', 'loading', 'toast'],
+            'Layout': ['container', 'frame', 'grid', 'divider', 'spacer'],
+            'Specialized': ['fab', 'actionsheet', 'bottomsheet', 'chart', 'table', 'calendar', 'timeline', 'upload', 'gallery', 'map', 'rating', 'cart', 'price']
+        };
+        
+        let currentTab = 'design-system';
+        let scanResults = [];
+        let currentFilter = 'all';
+        let searchQuery = '';
+        let lastGeneratedJSON = null;
+        let promptGenerator = null;
+        let selectedImage = null; // Explicitly initialize as null
+
+        // NEW: Enhanced state management for sessions
+        let designState = {
+            original: null,
+            current: null,
+            history: [],
+            frameId: null,
+            isIterating: false
+        };
+
+        // NEW: Session management variables
+        let currentSessionData = null;
+        let pendingSessionRestore = null;
+
+        // Validation and helper functions
+        // Debug function to check image state (call this in console if needed)
+function debugImageState() {
+    console.log('🔍 DEBUG IMAGE STATE:');
+    console.log('  - selectedImage:', selectedImage);
+    console.log('  - !!selectedImage:', !!selectedImage);
+    console.log('  - typeof selectedImage:', typeof selectedImage);
+    console.log('  - isValidImageSelected():', isValidImageSelected());
+    
+    const input = document.getElementById('imageInput');
+    console.log('  - input.files.length:', input ? input.files.length : 'no input');
+    console.log('  - input.value:', input ? input.value : 'no input');
+}
+
+// More robust validation in prompt generation
+function isValidImageSelected() {
+    return selectedImage && 
+           selectedImage.base64 && 
+           selectedImage.type && 
+           selectedImage.base64.length > 0;
+}
+        function validateAndFixJSONEnhanced(jsonString) {
+            try {
+                const parsed = JSON.parse(jsonString);
+                return { isValid: true, data: parsed, errors: [] };
+            } catch (e) {
+                console.log("🔧 JSON parsing failed, attempting fixes...");
+                
+                let fixed = jsonString.trim();
+                fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
+                fixed = fixed.replace(/}(\s*){/g, '},\n$1{');
+                
+                if (fixed.includes('[') && !fixed.includes(']')) {
+                    fixed = fixed + ']';
+                }
+                
+                const openBraces = (fixed.match(/{/g) || []).length;
+                const closeBraces = (fixed.match(/}/g) || []).length;
+                if (openBraces > closeBraces) {
+                    fixed = fixed + '}';
+                }
+                
+                fixed = fixed.replace(/"variants":\s*{[^}]*$/, '"variants": {}');
+                
+                try {
+                    const parsed = JSON.parse(fixed);
+                    console.log("✅ JSON fixed successfully!");
+                    return { isValid: true, data: parsed, errors: [] };
+                } catch (e2) {
+                    console.error("❌ Could not fix JSON:", e2.message);
+                    return { 
+                        isValid: false, 
+                        data: null, 
+                        errors: [e.message, "Auto-fix failed: " + e2.message] 
+                    };
+                }
+            }
+        }
+// NEW: AI Self-Check & Retry System - Phase 1: Validation Layer
+        function validateAIResponse(jsonData, scanResults) {
+            const validationResult = {
+                isValid: true,
+                errors: [],
+                warnings: [],
+                severity: 'none' // 'low', 'medium', 'high', 'critical'
+            };
+            
+            console.log('🔍 Starting AI response validation...');
+            
+            // Step 1: Basic Structure Validation
+            if (!jsonData.layoutContainer && !jsonData.items) {
+                validationResult.isValid = false;
+                validationResult.errors.push('Missing required layoutContainer or items');
+                validationResult.severity = 'critical';
+                return validationResult;
+            }
+            
+            if (!jsonData.items || !Array.isArray(jsonData.items)) {
+                validationResult.isValid = false;
+                validationResult.errors.push('Missing or invalid items array');
+                validationResult.severity = 'critical';
+                return validationResult;
+            }
+            
+            // Step 2: Component ID Validation
+            const availableComponents = new Set();
+            if (scanResults && Array.isArray(scanResults)) {
+                scanResults.forEach(comp => availableComponents.add(comp.id));
+            }
+            
+            let invalidComponentCount = 0;
+            jsonData.items.forEach((item, index) => {
+                if (item.type && !item.type.startsWith('native-') && !item.type.startsWith('layoutContainer')) {
+                    if (!item.componentNodeId) {
+                        validationResult.errors.push(`Item ${index}: Missing componentNodeId for type "${item.type}"`);
+                        invalidComponentCount++;
+                    } else if (!availableComponents.has(item.componentNodeId)) {
+                        validationResult.errors.push(`Item ${index}: Component ID "${item.componentNodeId}" not found in design system`);
+                        invalidComponentCount++;
+                    }
+                }
+            });
+            
+            // Set severity based on component issues
+            if (invalidComponentCount > 0) {
+                validationResult.isValid = false;
+                if (invalidComponentCount >= jsonData.items.length * 0.5) {
+                    validationResult.severity = 'critical';
+                } else if (invalidComponentCount >= jsonData.items.length * 0.3) {
+                    validationResult.severity = 'high';
+                } else {
+                    validationResult.severity = 'medium';
+                }
+            }
+            
+            console.log(`✅ Validation complete. Valid: ${validationResult.isValid}, Severity: ${validationResult.severity}`);
+            return validationResult;
+        }
+        // NEW: AI Self-Check & Retry System - Phase 2: Retry Engine
+        function createRetryPrompt(originalPrompt, validationResult, scanResults, attemptNumber) {
+            console.log(`🔄 Creating retry prompt (attempt ${attemptNumber})`);
+            
+            let retryStrategy = '';
+            let enhancedPrompt = originalPrompt;
+            
+            // Determine retry strategy based on error severity and attempt number
+            if (attemptNumber === 1) {
+                // First retry: Specific error fixes
+                if (validationResult.errors.some(err => err.includes('Component ID') || err.includes('not found'))) {
+                    retryStrategy = 'COMPONENT_ID_FIX';
+                    enhancedPrompt += '\n\n// 🔧 COMPONENT ID CORRECTION NEEDED:\n';
+                    enhancedPrompt += '// The previous response used invalid component IDs.\n';
+                    enhancedPrompt += '// You MUST use ONLY the exact componentNodeId values from the design system list above.\n';
+                    enhancedPrompt += '// NEVER use placeholder IDs like "button_id" or "input_id".\n';
+                    
+                    // Add available component IDs as reminder
+                    if (scanResults && scanResults.length > 0) {
+                        enhancedPrompt += '// Available component IDs:\n';
+                        scanResults.slice(0, 5).forEach(comp => {
+                            enhancedPrompt += `// - ${comp.suggestedType}: "${comp.id}"\n`;
+                        });
+                    }
+                }
+                
+                if (validationResult.errors.some(err => err.includes('Missing') && err.includes('layoutContainer'))) {
+                    retryStrategy = 'STRUCTURE_FIX';
+                    enhancedPrompt += '\n\n// 🔧 STRUCTURE CORRECTION NEEDED:\n';
+                    enhancedPrompt += '// Your response must have BOTH "layoutContainer" and "items" at the top level.\n';
+                    enhancedPrompt += '// Follow this exact structure:\n';
+                    enhancedPrompt += '// {"layoutContainer": {...}, "items": [...]}\n';
+                }
+                
+            } else if (attemptNumber === 2) {
+                // Second retry: Simplified approach
+                retryStrategy = 'SIMPLIFIED';
+                enhancedPrompt = `Create a SIMPLIFIED version of: ${originalPrompt}
+                
+// 🎯 SIMPLIFIED GENERATION RULES:
+// - Use ONLY basic components (button, input, text)
+// - NO variants or complex properties
+// - Keep layout simple with VERTICAL layoutMode
+// - Maximum 3-4 items total
+// - Use exact componentNodeId values from design system`;
+                
+            } else {
+                // Third+ retry: Basic fallback
+                retryStrategy = 'BASIC_FALLBACK';
+                enhancedPrompt = `Create a basic UI layout with:
+- 1 text element for title
+- 1-2 input elements  
+- 1 button element
+- Simple vertical layout
+- Use ONLY exact componentNodeId values from the available design system components`;
+            }
+            
+            console.log(`📝 Retry strategy: ${retryStrategy}`);
+            return {
+                prompt: enhancedPrompt,
+                strategy: retryStrategy,
+                attemptNumber: attemptNumber
+            };
+        }
+        
+        // Retry execution function
+        async function executeRetry(originalPrompt, validationResult, scanResults, attemptNumber, maxRetries = 3) {
+            if (attemptNumber > maxRetries) {
+                throw new Error(`Failed after ${maxRetries} attempts. Last errors: ${validationResult.errors.join(', ')}`);
+            }
+            
+            showStatus('generationStatus', `🔄 Improving result (attempt ${attemptNumber}/${maxRetries})...`, 'info');
+            
+            const retryData = createRetryPrompt(originalPrompt, validationResult, scanResults, attemptNumber);
+            
+            try {
+                const apiKey = await getApiKeyFromBackend();
+                const response = await callGeminiAPI(apiKey, retryData.prompt, selectedImage);
+                
+                const validation = validateAndFixJSONEnhanced(response);
+                if (!validation.isValid) {
+                    throw new Error(`JSON parsing failed on retry ${attemptNumber}`);
+                }
+                
+                const aiValidation = validateAIResponse(validation.data, scanResults);
+                if (aiValidation.isValid) {
+                    console.log(`✅ Retry ${attemptNumber} successful!`);
+                    return validation.data;
+                } else {
+                    console.log(`❌ Retry ${attemptNumber} failed validation, trying again...`);
+                    return await executeRetry(originalPrompt, aiValidation, scanResults, attemptNumber + 1, maxRetries);
+                }
+                
+            } catch (error) {
+                console.log(`❌ Retry ${attemptNumber} failed:`, error.message);
+                return await executeRetry(originalPrompt, validationResult, scanResults, attemptNumber + 1, maxRetries);
+            }
+        }
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            currentTab = tabId;
+        }
+
+        function showStatus(containerId, message, type) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function clearStatus(containerId) {
+            const container = document.getElementById(containerId);
+            if(container) container.innerHTML = '';
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
+        }
+        
+        // NEW: Session Management Functions
+        function showSessionModal(sessionData) {
+            currentSessionData = sessionData;
+            
+            // Populate modal with session data
+            document.getElementById('sessionFrameName').textContent = sessionData.designState.frameName || 'Unknown Frame';
+            document.getElementById('sessionLastModified').textContent = formatTime(sessionData.lastModified);
+            
+            const historyList = document.getElementById('sessionHistoryList');
+            historyList.innerHTML = sessionData.designState.history.map(item => `<li>${item}</li>`).join('');
+            
+            document.getElementById('sessionModal').style.display = 'flex';
+        }
+
+        function closeSessionModal() {
+            document.getElementById('sessionModal').style.display = 'none';
+            currentSessionData = null;
+        }
+
+        function restoreSession() {
+            if (!currentSessionData) return;
+            
+            // Send restore request to backend
+            parent.postMessage({
+                pluginMessage: {
+                    type: 'restore-session',
+                    payload: currentSessionData
+                }
+            }, '*');
+            
+            closeSessionModal();
+        }
+
+        function startNewSession() {
+            // Clear session and start fresh
+            parent.postMessage({
+                pluginMessage: {
+                    type: 'clear-current-session'
+                }
+            }, '*');
+            
+            startFresh();
+            closeSessionModal();
+        }
+
+        function showAllSessions() {
+            parent.postMessage({
+                pluginMessage: {
+                    type: 'get-all-sessions'
+                }
+            }, '*');
+        }
+
+        function closeAllSessionsModal() {
+            document.getElementById('allSessionsModal').style.display = 'none';
+        }
+
+        function renderAllSessions(sessions, currentFileId) {
+            const container = document.getElementById('allSessionsList');
+            container.innerHTML = '';
+            
+            if (sessions.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #586069; padding: 20px;">No active sessions found</p>';
+                return;
+            }
+            
+            sessions.forEach(session => {
+                const isCurrentFile = session.fileId === currentFileId;
+                
+                const sessionElement = document.createElement('div');
+                sessionElement.className = `session-item ${isCurrentFile ? 'current-file' : ''}`;
+                
+                sessionElement.innerHTML = `
+                    <div class="session-item-header">
+                        <div class="session-file-name">
+                            ${session.fileName}
+                            ${isCurrentFile ? '<span class="current-file-badge">Current File</span>' : ''}
+                        </div>
+                        <div class="session-time">${formatTime(session.lastModified)}</div>
+                    </div>
+                    <div class="session-item-details">
+                        Frame: ${session.designState.frameName} • 
+                        History: ${session.designState.history.length} changes
+                    </div>
+                    <div class="session-item-actions">
+                        ${isCurrentFile ? 
+                            `<button class="btn btn-secondary" onclick="restoreSpecificSession('${session.fileId}')">📂 Restore</button>` :
+                            `<button class="btn btn-secondary" onclick="showSessionDetails('${session.fileId}')">👁️ View</button>`
+                        }
+                        <button class="btn btn-secondary" onclick="deleteSession('${session.fileId}')">🗑️ Delete</button>
+                    </div>
+                `;
+                
+                container.appendChild(sessionElement);
+            });
+            
+            document.getElementById('allSessionsModal').style.display = 'flex';
+        }
+
+        function restoreSpecificSession(fileId) {
+            // This will be called for current file sessions
+            if (currentSessionData && currentSessionData.fileId === fileId) {
+                restoreSession();
+            }
+            closeAllSessionsModal();
+        }
+
+        function showSessionDetails(fileId) {
+            // For sessions from other files, just show info
+            showStatus('generationStatus', 'This session is from a different file. Switch to that file to restore it.', 'info');
+            closeAllSessionsModal();
+        }
+
+        function deleteSession(fileId) {
+            if (confirm('Delete this session permanently?')) {
+                parent.postMessage({
+                    pluginMessage: {
+                        type: 'delete-session',
+                        payload: fileId
+                    }
+                }, '*');
+            }
+        }
+
+        function formatTime(timestamp) {
+            const now = Date.now();
+            const diff = now - timestamp;
+            const minutes = Math.floor(diff / (1000 * 60));
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (minutes < 1) return 'just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            return `${days}d ago`;
+        }
+
+        // Design System Functions
+        function scanDesignSystem() {
+            document.getElementById('scanBtn').disabled = true;
+            document.getElementById('scanBtn').textContent = '🔍 Scanning...';
+            parent.postMessage({ pluginMessage: { type: 'scan-design-system' } }, '*');
+        }
+
+        function rescanDesignSystem() {
+            scanDesignSystem();
+        }
+
+        function displaySavedScan(components, scanTime) {
+            scanResults = components || [];
+            const statusContainer = document.getElementById('scanStatusContainer');
+            const statusText = document.getElementById('scanStatusText');
+            const rescanBtn = document.getElementById('rescanBtn');
+            
+            if (scanResults.length > 0) {
+                if (statusContainer) statusContainer.classList.add('loaded');
+                if (statusText) {
+                    const timeAgo = scanTime ? getTimeAgo(scanTime) : 'recently';
+                    statusText.textContent = `✅ ${scanResults.length} components loaded (scanned ${timeAgo})`;
+                }
+                if (rescanBtn) rescanBtn.style.display = 'inline-block';
+                displayComponents();
+                enableGeneratorTab();
+            } else {
+                if (statusText) statusText.textContent = 'No design system scanned yet';
+                if (rescanBtn) rescanBtn.style.display = 'none';
+            }
+        }
+
+        function enableGeneratorTab() {
+            const generatorTab = document.getElementById('generatorTab');
+            if (generatorTab) generatorTab.disabled = false;
+        }
+
+        function getTimeAgo(timestamp) {
+            if (!timestamp) return 'some time ago';
+            const now = Date.now();
+            const diff = now - timestamp;
+            const minutes = Math.floor(diff / (1000 * 60));
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (minutes < 1) return 'just now';
+            if (minutes < 60) return `${minutes} minutes ago`;
+            if (hours < 24) return `${hours} hours ago`;
+            return `${days} days ago`;
+        }
+
+        function displayComponents() {
+            const section = document.getElementById('componentsSection');
+            const promptSection = document.getElementById('promptSection');
+            
+            if (scanResults.length === 0) {
+                if (section) section.style.display = 'none';
+                if (promptSection) promptSection.style.display = 'none';
+                return;
+            }
+            
+            scanResults.forEach(comp => {
+                if (comp.isVerified === undefined) {
+                    comp.isVerified = false;
+                }
+            });
+            
+            renderComponentList();
+            updateComponentStats();
+            
+            if (section) section.style.display = 'block';
+            if (promptSection) promptSection.style.display = 'block';
+        }
+
+        function renderComponentList() {
+            const container = document.getElementById('componentsList');
+            if (!container) return;
+            
+            const filteredComponents = getFilteredComponents();
+            container.innerHTML = '';
+            
+            filteredComponents.forEach(comp => {
+                const item = createComponentItem(comp);
+                container.appendChild(item);
+            });
+            
+            container.querySelectorAll('.type-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    const componentId = e.target.getAttribute('data-component-id');
+                    const newType = e.target.value;
+                    handleTypeChange(componentId, newType);
+                });
+            });
+            
+            container.querySelectorAll('.navigate-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const componentId = e.target.getAttribute('data-component-id');
+                    const pageName = e.target.getAttribute('data-page-name');
+                    handleNavigation(componentId, pageName);
+                });
+            });
+        }
+
+        function handleTypeChange(componentId, newType) {
+            const component = scanResults.find(comp => comp.id === componentId);
+            if (component) {
+                component.suggestedType = newType;
+                component.confidence = 1.0;
+                component.isVerified = true;
+                renderComponentList();
+                updateComponentStats();
+                parent.postMessage({
+                    pluginMessage: {
+                        type: 'update-component-type',
+                        payload: { componentId, newType }
+                    }
+                }, '*');
+            }
+        }
+
+        function handleNavigation(componentId, pageName) {
+            parent.postMessage({
+                pluginMessage: {
+                    type: 'navigate-to-component',
+                    componentId,
+                    pageName
+                }
+            }, '*');
+        }
+
+        function createComponentItem(comp) {
+            const item = document.createElement('div');
+            item.className = 'component-item';
+            item.dataset.componentId = comp.id;
+            
+            const confidence = Math.round(comp.confidence * 100);
+            let confidenceClass = 'confidence-low';
+            if (comp.isVerified) confidenceClass = 'confidence-verified';
+            else if (confidence >= 80) confidenceClass = 'confidence-high';
+            else if (confidence >= 60) confidenceClass = 'confidence-medium';
+            
+            const statusIcon = comp.isVerified ? '✓' : (comp.suggestedType === 'unknown' ? '❓' : '🤖');
+            const statusClass = comp.isVerified ? 'icon-verified' : (comp.suggestedType === 'unknown' ? 'icon-unknown' : 'icon-auto');
+            const selectOptions = createSelectOptions(comp.suggestedType);
+            
+            item.innerHTML = `
+                <div class="component-info">
+                    <div class="component-name">${comp.name}</div>
+                    <div class="component-meta">
+                        <div class="type-selector">
+                            <span class="status-icon ${statusClass}">${statusIcon}</span>
+                            <select class="type-select" data-component-id="${comp.id}">${selectOptions}</select>
+                        </div>
+                        <span class="confidence-badge ${confidenceClass}">${comp.isVerified ? 'Manual' : confidence + '%'}</span>
+                        <span class="page-info">📄 ${comp.pageInfo?.pageName || 'Unknown'}</span>
+                    </div>
+                </div>
+                <div class="component-actions">
+                    <button class="btn-action navigate-btn" data-component-id="${comp.id}" data-page-name="${comp.pageInfo?.pageName || ''}" title="View in Figma">👁️</button>
+                </div>
+            `;
+            
+            return item;
+        }
+
+        function createSelectOptions(selectedType) {
+            let options = '';
+            Object.keys(componentTypes).forEach(category => {
+                options += `<optgroup label="${category}">`;
+                componentTypes[category].forEach(type => {
+                    const isSelected = type === selectedType ? 'selected' : '';
+                    options += `<option value="${type}" ${isSelected}>${type}</option>`;
+                });
+                options += '</optgroup>';
+            });
+            
+            const unknownSelected = selectedType === 'unknown' ? 'selected' : '';
+            options += `<optgroup label="Other"><option value="unknown" ${unknownSelected}>unknown</option></optgroup>`;
+            
+            return options;
+        }
+
+        function getFilteredComponents() {
+            let filtered = scanResults;
+            
+            if (searchQuery) {
+                filtered = filtered.filter(comp => 
+                    comp.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                    comp.suggestedType.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+            }
+            
+            switch (currentFilter) {
+                case 'unknown':
+                    return filtered.filter(comp => comp.suggestedType === 'unknown');
+                case 'low':
+                    return filtered.filter(comp => comp.confidence < 0.6 && !comp.isVerified);
+                case 'verified':
+                    return filtered.filter(comp => comp.isVerified);
+                default:
+                    return filtered;
+            }
+        }
+
+        function updateComponentStats() {
+            const total = scanResults.length;
+            const highConf = scanResults.filter(comp => comp.confidence >= 0.8 && !comp.isVerified).length;
+            const lowConf = scanResults.filter(comp => (comp.confidence < 0.6 || comp.suggestedType === 'unknown') && !comp.isVerified).length;
+            const verified = scanResults.filter(comp => comp.isVerified).length;
+            
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('highConfCount').textContent = highConf;
+            document.getElementById('lowConfCount').textContent = lowConf;
+            document.getElementById('verifiedCount').textContent = verified;
+        }
+
+        function setupComponentListeners() {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    searchQuery = e.target.value;
+                    renderComponentList();
+                });
+            }
+            
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    currentFilter = e.target.dataset.filter;
+                    renderComponentList();
+                });
+            });
+        }
+
+        function generateLLMPrompt() {
+            parent.postMessage({ pluginMessage: { type: 'generate-llm-prompt' } }, '*');
+        }
+
+        // API Functions
+        function setupApiKeyHandling() {
+            const apiKeyInput = document.getElementById('apiKey');
+            if (apiKeyInput) {
+                apiKeyInput.addEventListener('focus', function() {
+                    if (this.getAttribute('data-has-key') === 'true') {
+                        this.value = '';
+                        this.setAttribute('data-has-key', 'false');
+                    }
+                });
+                
+                apiKeyInput.addEventListener('input', function() {
+                    if (this.value.length > 0) {
+                        this.setAttribute('data-has-key', 'false');
+                    }
+                });
+            }
+        }
+
+        function saveApiKey() {
+            const apiKeyInput = document.getElementById('apiKey');
+            const saveBtn = document.getElementById('saveBtn');
+            if (!apiKeyInput || !saveBtn) return;
+            
+            const apiKey = apiKeyInput.value.trim();
+            
+            if (apiKeyInput.getAttribute('data-has-key') === 'true' && apiKey.includes('●')) {
+                showStatus('connectionStatus', 'ℹ️ API key already saved', 'info');
+                return;
+            }
+            
+            if (!apiKey) {
+                showStatus('connectionStatus', '❌ Please enter an API key', 'error');
+                return;
+            }
+            
+            saveBtn.disabled = true;
+            saveBtn.textContent = '💾 Saving...';
+            parent.postMessage({
+                pluginMessage: {
+                    type: 'save-api-key',
+                    payload: apiKey
+                }
+            }, '*');
+        }
+
+        async function testGeminiConnection() {
+            const testBtn = document.getElementById('testBtn');
+            if (!testBtn) return;
+            
+            testBtn.disabled = true;
+            testBtn.textContent = '🔌 Testing...';
+            showStatus('connectionStatus', '🔄 Requesting API key...', 'info');
+            
+            try {
+                const apiKey = await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        window.removeEventListener('message', handler);
+                        reject(new Error('Timeout: no response from plugin.'));
+                    }, 3000);
+                    
+                    const handler = (event) => {
+                        const msg = event.data.pluginMessage;
+                        if (msg && (msg.type === 'api-key-found' || msg.type === 'api-key-not-found')) {
+                            clearTimeout(timeout);
+                            window.removeEventListener('message', handler);
+                            resolve(msg.payload || null);
+                        }
+                    };
+                    
+                    window.addEventListener('message', handler);
+                    parent.postMessage({ pluginMessage: { type: 'get-api-key' } }, '*');
+                });
+                
+                if (!apiKey) {
+                    throw new Error('API key not found. Please save it.');
+                }
+                
+                showStatus('connectionStatus', '🔄 Testing connection with Gemini API...', 'info');
+                
+                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: 'Hello' }] }]
+                    })
+                });
+                
+                if (response.ok) {
+                    showStatus('connectionStatus', '✅ Connection successful!', 'success');
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(`HTTP ${response.status}: ${errorData.error?.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                showStatus('connectionStatus', `❌ Error: ${errorMessage}`, 'error');
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = '🔌 Test Connection';
+            }
+        }
+
+        // Image Functions
+        function validateImageFile(file) {
+            const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            const maxSize = 4 * 1024 * 1024;
+            
+            if (!validTypes.includes(file.type)) {
+                showStatus('generationStatus', `❌ Invalid file type. Please use JPG, PNG, WEBP, or GIF.`, 'error');
+                return false;
+            }
+            
+            if (file.size > maxSize) {
+                showStatus('generationStatus', `❌ File is too large. Maximum size is 4MB.`, 'error');
+                return false;
+            }
+            
+            return true;
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        async function handleImageSelection(file) {
+            if (!validateImageFile(file)) {
+                return;
+            }
+            
+            try {
+                const base64 = await fileToBase64(file);
+                selectedImage = {
+                    base64: base64,
+                    type: file.type,
+                    name: file.name
+                };
+                
+                document.getElementById('previewImg').src = `data:${file.type};base64,${base64}`;
+                document.getElementById('imagePreview').style.display = 'flex';
+                document.getElementById('uploadPrompt').style.display = 'none';
+                document.getElementById('imageUploadArea').classList.add('has-image');
+                
+                showStatus('generationStatus', `✅ Image "${file.name}" loaded successfully.`, 'success');
+            } catch (error) {
+                console.error('Error processing image:', error);
+                showStatus('generationStatus', '❌ Could not process the image file.', 'error');
+                clearImageSelection();
+            }
+        }
+
+        function clearImageSelection() {
+            selectedImage = null;
+            const imageInput = document.getElementById('imageInput');
+            if(imageInput) imageInput.value = '';
+            
+            document.getElementById('imagePreview').style.display = 'none';
+            document.getElementById('uploadPrompt').style.display = 'block';
+            document.getElementById('imageUploadArea').classList.remove('has-image');
+            
+            clearStatus('generationStatus');
+        }
+
+        // AI Generator & Iteration Functions
+        function startFresh() {
+    // Reset state object
+    designState = {
+        original: null,
+        current: null,
+        history: [],
+        frameId: null,
+        isIterating: false
+    };
+
+    // 🔧 ENSURE CLEAN IMAGE STATE: Force clear selectedImage
+    selectedImage = null;
+    console.log('🔄 startFresh called, selectedImage reset to:', selectedImage);
+
+    // Update UI elements
+    document.getElementById('iterationContext').style.display = 'none';
+    document.getElementById('userPromptLabel').textContent = 'Describe the UI you want to create:';
+    document.getElementById('userPrompt').placeholder = 'create a login form with email and password fields...';
+    document.getElementById('currentContext').textContent = 'Ready for new UI';
+    document.getElementById('userPrompt').value = '';
+    document.getElementById('generateBtn').textContent = '🪄 Generate UI';
+    document.getElementById('imageUploadArea').style.display = 'block';
+
+    clearStatus('generationStatus');
+    clearImageSelection(); // This will also clear the UI state
+}
+
+        function enterIterationMode(generatedJSON, frameId) {
+            designState.original = JSON.parse(JSON.stringify(generatedJSON));
+            designState.current = generatedJSON;
+            designState.frameId = frameId;
+            designState.isIterating = true;
+            designState.history = ["Original design generated."];
+
+            // Save session state
+            saveCurrentSession();
+
+            // Update UI
+            document.getElementById('currentDesignName').textContent = generatedJSON.layoutContainer?.name || 'Generated UI';
+            updateModificationHistory();
+            document.getElementById('iterationContext').style.display = 'block';
+            document.getElementById('userPromptLabel').textContent = 'Describe the changes you want to make:';
+            document.getElementById('userPrompt').placeholder = 'e.g., "add a forgot password link" or "change the button to secondary"';
+            document.getElementById('generateBtn').textContent = '🪄 Apply Changes';
+            
+            // Hide image upload during iteration to avoid confusion
+            document.getElementById('imageUploadArea').style.display = 'none';
+        }
+        
+        function updateModificationHistory() {
+            const historyList = document.getElementById('modHistory');
+            historyList.innerHTML = designState.history.map(item => `<li>${item}</li>`).join('');
+        }
+        
+        async function resetToOriginal() {
+            if (!designState.isIterating || !designState.original) return;
+            
+            showStatus('generationStatus', '🔄 Resetting to original design...', 'info');
+            
+            // Update state
+            designState.current = JSON.parse(JSON.stringify(designState.original));
+            designState.history = ["Original design generated."];
+            updateModificationHistory();
+            saveCurrentSession();
+
+            // Send message to backend to re-render the original JSON
+            parent.postMessage({
+                pluginMessage: {
+                    type: 'modify-existing-ui',
+                    payload: {
+                        modifiedJSON: designState.current,
+                        frameId: designState.frameId
+                    }
+                }
+            }, '*');
+        }
+
+        function viewCurrentDesignJSON() {
+            if (!designState.current) return;
+            
+            lastGeneratedJSON = designState.current;
+            const jsonOutput = document.getElementById('jsonOutput');
+            const debugSection = document.getElementById('jsonDebugSection');
+            
+            if (jsonOutput && debugSection) {
+                jsonOutput.textContent = JSON.stringify(lastGeneratedJSON, null, 2);
+                debugSection.style.display = 'block';
+                jsonOutput.style.display = 'block';
+            }
+        }
+
+        function generateFromJSON() {
+            const jsonInput = document.getElementById('jsonInput');
+            if (!jsonInput || !jsonInput.value.trim()) {
+                showStatus('generationStatus', 'Please paste JSON data', 'error');
+                return;
+            }
+            
+            // Manual generation always starts a fresh session
+            startFresh(); 
+            parent.postMessage({
+                pluginMessage: {
+                    type: 'generate-ui-from-json',
+                    payload: jsonInput.value.trim()
+                }
+            }, '*');
+        }
+        
+        async function generateWithGemini() {
+            if (designState.isIterating) {
+                await iterateOnDesign();
+            } else {
+                await generateNewDesign();
+            }
+        }
+        
+        async function iterateOnDesign() {
+    const userPrompt = document.getElementById('userPrompt').value.trim();
+    const generateBtn = document.getElementById('generateBtn');
+
+    if (!userPrompt) {
+        showStatus('generationStatus', '❌ Please describe the changes you want to make.', 'error');
+        return;
+    }
+
+    // 🔍 DEBUG: Verify image state before generating modification prompt
+    console.log('🔍 Before generating modification prompt:');
+    console.log('  - selectedImage:', selectedImage);
+    console.log('  - !!selectedImage:', !!selectedImage);
+    console.log('  - isValidImageSelected():', isValidImageSelected());
+    console.log('  - Should use modification prompt (not image prompt)');
+
+    generateBtn.disabled = true;
+    generateBtn.textContent = '🪄 Applying...';
+    showStatus('generationStatus', '🤖 Gemini is analyzing your changes...', 'info');
+
+    try {
+        const apiKey = await getApiKeyFromBackend();
+        
+        // 🔧 IMPORTANT: Use generateModificationPrompt directly with platform support
+        const promptData = promptGenerator.generateModificationPrompt(
+            userPrompt, 
+            designState.current, 
+            scanResults, 
+            currentPlatform  // ← Add platform parameter
+        );
+        console.log('✅ Using modification prompt with platform:', currentPlatform);
+        
+        const response = await callGeminiAPI(apiKey, promptData.fullPrompt, null);
+        
+        // AI Self-Check & Retry System for Modifications
+        const basicValidation = validateAndFixJSONEnhanced(response);
+        if (!basicValidation.isValid) {
+            throw new Error(`JSON parsing failed: ${basicValidation.errors.join(', ')}`);
+        }
+        
+        // Run AI validation on the modification
+        const aiValidation = validateAIResponse(basicValidation.data, scanResults);
+        let validatedData;
+        
+        if (aiValidation.isValid) {
+            console.log('✅ Modification passed AI validation on first attempt');
+            validatedData = basicValidation.data;
+        } else {
+            console.log('❌ Modification validation failed, starting retry system...');
+            try {
+                validatedData = await executeRetry(userPrompt, aiValidation, scanResults, 1);
+                showStatus('generationStatus', '✅ Modification retry successful! Changes validated.', 'success');
+            } catch (retryError) {
+                throw new Error(`Modification validation failed: ${retryError.message}`);
+            }
+        }
+        
+        const modifiedJSON = validatedData;
+        lastGeneratedJSON = modifiedJSON;
+
+        // Update state
+        designState.current = modifiedJSON;
+        designState.history.push(userPrompt);
+        updateModificationHistory();
+        saveCurrentSession();
+
+        // Display debug JSON
+        const debugSection = document.getElementById('jsonDebugSection');
+        if(debugSection) debugSection.style.display = 'block';
+        const jsonOutput = document.getElementById('jsonOutput');
+        if(jsonOutput) jsonOutput.textContent = JSON.stringify(modifiedJSON, null, 2);
+
+        // Send to backend for in-place update
+        parent.postMessage({
+            pluginMessage: {
+                type: 'modify-existing-ui',
+                payload: {
+                    modifiedJSON: modifiedJSON,
+                    frameId: designState.frameId
+                }
+            }
+        }, '*');
+
+        document.getElementById('userPrompt').value = '';
+        showStatus('generationStatus', '✅ Changes applied successfully!', 'success');
+
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        showStatus('generationStatus', `❌ Error: ${errorMessage}`, 'error');
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = '🪄 Apply Changes';
+    }
+}
+
+        async function generateNewDesign() {
+    const userPrompt = document.getElementById('userPrompt').value.trim();
+    const generateBtn = document.getElementById('generateBtn');
+    
+    // 🔧 ROBUST IMAGE VALIDATION: Use more strict check
+    const hasValidImage = isValidImageSelected();
+    console.log('🔍 Image validation:');
+    console.log('  - selectedImage:', selectedImage);
+    console.log('  - hasValidImage:', hasValidImage);
+    
+    if (!userPrompt && !hasValidImage) {
+        showStatus('generationStatus', '❌ Please describe the UI or upload a reference image', 'error');
+        return;
+    }
+    
+    generateBtn.disabled = true;
+    generateBtn.textContent = '🪄 Generating...';
+    showStatus('generationStatus', '🤖 Gemini is generating UI...', 'info');
+
+    try {
+        const apiKey = await getApiKeyFromBackend();
+        
+        // 🔧 USE ROBUST VALIDATION: Pass hasValidImage instead of !!selectedImage
+        const promptData = promptGenerator.generatePrompt(
+            userPrompt, 
+            scanResults, 
+            [], 
+            hasValidImage,  // ← Use robust validation here
+            currentPlatform
+        );
+        
+        console.log('🔍 Using hasValidImage:', hasValidImage);
+        console.log('🔍 Prompt type:', hasValidImage ? 'IMAGE ANALYSIS' : 'TEXT ONLY');
+        
+        // Pass actual image only if validation passes
+        const imageToSend = hasValidImage ? selectedImage : null;
+        const response = await callGeminiAPI(apiKey, promptData.fullPrompt, imageToSend);
+        
+        console.log('🔍 Raw LLM response:', response);
+        console.log('🔍 Response length:', response.length);
+        console.log('🔍 Response around position 776:', response.substring(770, 785));
+// AI Self-Check & Retry System Integration
+                const basicValidation = validateAndFixJSONEnhanced(response);
+                if (!basicValidation.isValid) {
+                    throw new Error(`JSON parsing failed: ${basicValidation.errors.join(', ')}`);
+                }
+                
+                // Run AI validation on the parsed JSON
+                const aiValidation = validateAIResponse(basicValidation.data, scanResults);
+                let layoutData;
+                
+                if (aiValidation.isValid) {
+                    // Perfect! First attempt worked
+                    console.log('✅ First attempt passed AI validation');
+                    layoutData = basicValidation.data;
+                } else {
+                    // AI validation failed, trigger retry system
+                    console.log('❌ AI validation failed, starting retry system...');
+                    console.log('Errors:', aiValidation.errors);
+                    
+                    try {
+                        layoutData = await executeRetry(userPrompt, aiValidation, scanResults, 1);
+                        showStatus('generationStatus', '✅ Retry successful! UI improved and validated.', 'success');
+                    } catch (retryError) {
+                        throw new Error(`AI validation and all retries failed: ${retryError.message}`);
+                    }
+                }
+                
+                lastGeneratedJSON = layoutData;
+
+                const debugSection = document.getElementById('jsonDebugSection');
+                if (debugSection) debugSection.style.display = 'block';
+                const jsonOutput = document.getElementById('jsonOutput');
+                if (jsonOutput) jsonOutput.textContent = JSON.stringify(layoutData, null, 2);
+
+                showStatus('generationStatus', '✨ Creating UI in Figma...', 'success');
+                parent.postMessage({
+                    pluginMessage: {
+                        type: 'generate-ui-from-json',
+                        payload: JSON.stringify(layoutData)
+                    }
+                }, '*');
+                
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        showStatus('generationStatus', `❌ Error: ${errorMessage}`, 'error');
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = '🪄 Generate UI';
+    }
+}
+
+        async function getApiKeyFromBackend() {
+            showStatus('generationStatus', '🔄 Getting API key...', 'info');
+            
+            const apiKey = await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    window.removeEventListener('message', handler);
+                    reject(new Error('Timeout getting API key.'));
+                }, 3000);
+                
+                const handler = (event) => {
+                    const msg = event.data.pluginMessage;
+                    if (msg && (msg.type === 'api-key-found' || msg.type === 'api-key-not-found')) {
+                        clearTimeout(timeout);
+                        window.removeEventListener('message', handler);
+                        resolve(msg.payload || null);
+                    }
+                };
+                
+                window.addEventListener('message', handler);
+                parent.postMessage({ pluginMessage: { type: 'get-api-key' } }, '*');
+            });
+            
+            if (!apiKey) throw new Error('API key not found. Please save it in settings.');
+            return apiKey;
+        }
+
+        async function callGeminiAPI(apiKey, fullPrompt, image) {
+            showStatus('generationStatus', '🤖 Calling Gemini API...', 'info');
+            
+            const apiParts = [{ text: fullPrompt }];
+            if (image) {
+                apiParts.push({ inlineData: { mimeType: image.type, data: image.base64 } });
+            }
+            
+            const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ role: 'user', parts: apiParts }],
+                    generationConfig: {
+                        temperature: 0.2,
+                        maxOutputTokens: 8192,
+                        responseMimeType: "application/json",
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || 'API Error');
+            }
+
+            const data = await response.json();
+            if (!data.candidates || !data.candidates[0].content.parts[0].text) {
+                throw new Error('Invalid response structure from Gemini API.');
+            }
+            
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        function copyGeneratedJSON() {
+            if (lastGeneratedJSON) {
+                copyToClipboard(JSON.stringify(lastGeneratedJSON, null, 2))
+                    .then(() => showStatus('generationStatus', '📋 JSON copied to clipboard!', 'success'));
+            }
+        }
+
+        function toggleJSONView() {
+            const jsonOutput = document.getElementById('jsonOutput');
+            if (jsonOutput) {
+                jsonOutput.style.display = jsonOutput.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('Clear all saved data? This will remove API key and design system cache.')) {
+                parent.postMessage({ pluginMessage: { type: 'clear-storage' } }, '*');
+                location.reload();
+            }
+        }
+
+        // NEW: Session state saving
+        function saveCurrentSession() {
+            if (designState.isIterating) {
+                parent.postMessage({
+                    pluginMessage: {
+                        type: 'save-current-session',
+                        payload: {
+                            designState: designState,
+                            scanData: scanResults
+                        }
+                    }
+                }, '*');
+            }
+        }
+
+        // Message Handler and Initialization
+        window.onmessage = (event) => {
+            const msg = event.data.pluginMessage;
+            if (!msg) return;
+
+            console.log("📨 Message from plugin:", msg.type);
+
+            switch (msg.type) {
+                // API and session handlers
+                case 'api-key-loaded':
+                    console.log('✅ API key loaded from storage');
+                    const apiKeyInput = document.getElementById('apiKey');
+                    if (apiKeyInput) {
+                        apiKeyInput.value = '●'.repeat(40);
+                        apiKeyInput.setAttribute('data-has-key', 'true');
+                    }
+                    enableGeneratorTab();
+                    showStatus('connectionStatus', '✅ API key loaded from previous session', 'success');
+                    break;
+
+                case 'api-key-saved':
+                    const saveBtn = document.getElementById('saveBtn');
+                    if (saveBtn) {
+                        saveBtn.disabled = false;
+                        saveBtn.textContent = '💾 Save API Key';
+                    }
+                    showStatus('connectionStatus', '✅ API key saved successfully!', 'success');
+                    const keyInput = document.getElementById('apiKey');
+                    if (keyInput) {
+                        keyInput.value = '●'.repeat(40);
+                        keyInput.setAttribute('data-has-key', 'true');
+                    }
+                    enableGeneratorTab();
+                    break;
+
+                // Design system handlers
+                case 'scan-results':
+                    const scanBtn = document.getElementById('scanBtn');
+                    if(scanBtn) {
+                        scanBtn.disabled = false;
+                        scanBtn.textContent = '🔍 Scan Design System';
+                    }
+                    displaySavedScan(msg.components, Date.now());
+                    break;
+
+                case 'saved-scan-loaded':
+                    console.log('✅ Design system loaded from storage');
+                    displaySavedScan(msg.components, msg.scanTime);
+                    break;
+
+                case 'llm-prompt-generated':
+                    copyToClipboard(msg.prompt);
+                    const scanStatusText = document.getElementById('scanStatusText');
+                    if(scanStatusText) {
+                        showStatus(scanStatusText.parentElement.id, '📋 Prompt copied to clipboard!', 'success');
+                    }
+                    break;
+
+                // UI generation handlers
+                case 'ui-generated-success':
+                    clearStatus('generationStatus');
+                    enterIterationMode(msg.generatedJSON, msg.frameId);
+                    document.getElementById('userPrompt').value = '';
+                    break;
+                
+                case 'ui-modified-success':
+                    clearStatus('generationStatus');
+                    showStatus('generationStatus', '✅ UI updated successfully!', 'success');
+                    break;
+                
+                case 'ui-generation-error':
+                    showStatus('generationStatus', `❌ Generation error: ${msg.error}`, 'error');
+                    break;
+
+                // NEW: Session management handlers
+                case 'session-found':
+                    showSessionModal(msg.session);
+                    break;
+
+                case 'session-restored':
+                    // Restore the design state from session
+                    designState = {
+                        original: msg.designState.original,
+                        current: msg.designState.current,
+                        history: [...msg.designState.history],
+                        frameId: msg.designState.frameId,
+                        isIterating: msg.designState.isIterating
+                    };
+                    
+                    if (msg.scanData) {
+                        scanResults = msg.scanData;
+                        displaySavedScan(msg.scanData);
+                    }
+                    
+                    if (designState.isIterating) {
+                        enterIterationMode(designState.current, designState.frameId);
+                        // Update history display
+                        designState.history = msg.designState.history;
+                        updateModificationHistory();
+                    }
+                    
+                    showStatus('generationStatus', '✅ Session restored successfully!', 'success');
+                    break;
+
+                case 'session-cleared':
+                    startFresh();
+                    break;
+
+                case 'all-sessions-loaded':
+                    renderAllSessions(msg.sessions, msg.currentFileId);
+                    break;
+
+                case 'session-deleted':
+                    // Refresh the sessions list if it's open
+                    const allSessionsModal = document.getElementById('allSessionsModal');
+                    if (allSessionsModal.style.display === 'flex') {
+                        showAllSessions();
+                    }
+                    break;
+
+                default:
+                    // Ignore unknown messages
+                    break;
+            }
+        };
+
+        function setupImageUploadListeners() {
+    const area = document.getElementById('imageUploadArea');
+    const input = document.getElementById('imageInput');
+    
+    if (area) {
+        area.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'BUTTON') input.click();
+        });
+        
+        area.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            area.style.borderColor = '#0366d6';
+        });
+        
+        area.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            area.style.borderColor = '#d1d5da';
+        });
+        
+        area.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            area.style.borderColor = '#d1d5da';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleImageSelection(files[0]);
+            } else {
+                // 🔧 FIX: Ensure selectedImage is null if no files dropped
+                console.log('📝 No files dropped, ensuring selectedImage is null');
+                selectedImage = null;
+            }
+        });
+    }
+    
+    if (input) {
+        input.addEventListener('change', (e) => {
+            console.log('🔍 File input change event fired');
+            const files = e.target.files;
+            console.log('🔍 Files count:', files.length);
+            
+            if (files.length > 0) {
+                console.log('📁 File selected:', files[0].name);
+                handleImageSelection(files[0]);
+            } else {
+                // 🔧 CRITICAL FIX: When user cancels file dialog, explicitly clear selectedImage
+                console.log('❌ File dialog canceled or no file selected, clearing selectedImage');
+                selectedImage = null;
+                console.log('✅ selectedImage after clearing:', selectedImage);
+            }
+        });
+        
+        // 🔧 ADDITIONAL FIX: Listen for focus events to detect when dialog opens/closes
+        input.addEventListener('focus', () => {
+            console.log('🔍 File input focused (dialog opening)');
+        });
+        
+        input.addEventListener('blur', () => {
+            console.log('🔍 File input blurred (dialog closed)');
+            // Double-check that selectedImage is properly set
+            if (!input.files || input.files.length === 0) {
+                console.log('💡 Dialog closed with no files, ensuring selectedImage is null');
+                selectedImage = null;
+            }
+        });
+    }
+}
+
+        // Document ready initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 UI initialized');
+            setupComponentListeners();
+            setupApiKeyHandling();
+            setupImageUploadListeners();
+           try {
+    console.log('🔍 DEBUG: About to create AIDesignerPromptGenerator');
+    promptGenerator = new AIDesignerPromptGenerator();
+    console.log('🔍 DEBUG: Prompt generator created successfully:', !!promptGenerator);
+} catch (error) {
+    console.error('❌ ERROR creating prompt generator:', error);
+}
+startFresh();
+            
+            // Request saved data
+            parent.postMessage({ pluginMessage: { type: 'get-saved-scan' } }, '*');
+            parent.postMessage({ pluginMessage: { type: 'get-api-key' } }, '*');
+        });
+    </script>
+</body>
+</html>

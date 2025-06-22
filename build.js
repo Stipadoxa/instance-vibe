@@ -1,52 +1,75 @@
-// build.js - FINAL VERSION WITH ASSET COPYING
+// build.js - Updated to build both backend and frontend
 
 const esbuild = require('esbuild');
-const fs = require('fs-extra');
 
 const isWatchMode = process.argv.includes('--watch');
 
-function build() {
-    console.log('... Preparing dist folder and building assets');
+async function buildBackend() {
+    console.log('🔨 Building backend (TypeScript)...');
+    
+    const backendContext = await esbuild.context({
+        entryPoints: ['code.ts'],
+        bundle: true,
+        outfile: 'code.js',
+        platform: 'browser',
+        target: 'es2017',
+    });
+    
+    return backendContext;
+}
 
-    // 1. Ensure the 'dist' directory is clean and exists.
-    fs.emptyDirSync('dist');
+async function buildFrontend() {
+    console.log('🎨 Building frontend (UI modules)...');
+    
+    const frontendContext = await esbuild.context({
+        entryPoints: ['ui-main.js'],
+        bundle: true,
+        outfile: 'ui-bundle.js',
+        platform: 'browser',
+        target: 'es2017',
+        format: 'iife', // Immediately Invoked Function Expression for global scope
+        globalName: 'AIDesignerUI', // Optional global variable name
+    });
+    
+    return frontendContext;
+}
 
-    // 2. Copy static HTML and CSS assets from 'src' to 'dist'.
+async function main() {
     try {
-        fs.copySync('src/ui/ui.html', 'dist/ui.html');
-        fs.copySync('src/ui/core/styles', 'dist/styles');
-        console.log('✅ Static HTML and CSS copied to dist/.');
-    } catch (err) {
-        console.error('❌ Error copying static assets:', err);
+        // Build both backend and frontend
+        const [backendContext, frontendContext] = await Promise.all([
+            buildBackend(),
+            buildFrontend()
+        ]);
+
+        if (isWatchMode) {
+            console.log('👀 Watching for changes...');
+            await Promise.all([
+                backendContext.watch(),
+                frontendContext.watch()
+            ]);
+            console.log('✅ Watch mode active for both backend and frontend');
+        } else {
+            console.log('Building...');
+            await Promise.all([
+                backendContext.rebuild(),
+                frontendContext.rebuild()
+            ]);
+            
+            // Clean up contexts
+            await Promise.all([
+                backendContext.dispose(),
+                frontendContext.dispose()
+            ]);
+            
+            console.log('✅ Build successful!');
+            console.log('   📁 Backend: code.js');
+            console.log('   📁 Frontend: ui-bundle.js');
+        }
+    } catch (error) {
+        console.error('❌ Build failed:', error);
         process.exit(1);
-    }
-
-    // 3. Build the backend and frontend JavaScript bundles.
-    esbuild.build({
-        entryPoints: ['src/code.ts'],
-        bundle: true,
-        outfile: 'dist/code.js',
-        platform: 'browser',
-        target: 'es2017',
-        watch: isWatchMode,
-    }).catch(() => process.exit(1));
-
-    esbuild.build({
-        entryPoints: ['src/ui/core/app.js'],
-        bundle: true,
-        outfile: 'dist/ui-bundle.js',
-        platform: 'browser',
-        target: 'es2017',
-        format: 'iife',
-        watch: isWatchMode,
-    }).catch(() => process.exit(1));
-
-    if (isWatchMode) {
-        console.log('👀 Watching for changes...');
-    } else {
-        console.log('✅ Build successful!');
     }
 }
 
-// Run the build process.
-build();
+main();

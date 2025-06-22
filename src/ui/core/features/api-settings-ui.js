@@ -1,8 +1,8 @@
 // src/ui/features/api-settings-ui.js
 // API Settings UI functionality for AIDesigner
 
-import { MessageHandler } from '../message-handler.js';
-import { UIFramework } from '../ui-framework.js';
+import { MessageHandler } from '../core/message-handler.js';
+import { UIFramework } from '../core/ui-framework.js';
 
 export class APISettingsUI {
     constructor() {
