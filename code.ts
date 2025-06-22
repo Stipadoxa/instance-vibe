@@ -1,5 +1,6 @@
 // code.ts - COMPLETE MODULAR VERSION WITH VALIDATION ENGINE
 import { SessionManager, SessionState, ComponentInfo } from './src/core/session-manager';
+import { SessionService } from './src/core/session-service';
 import { ComponentScanner, ScanSession } from './src/core/component-scanner';
 import { FigmaRenderer } from './src/core/figma-renderer';
 import { GeminiAPI, GeminiRequest } from './src/ai/gemini-api';
@@ -102,9 +103,9 @@ async function generateUIFromAPI(prompt: string, systemPrompt: string, enableVal
     }
 }
 
-// MODIFIED: initializeSession with validation engine
+// UPDATED: initializeSession with new SessionService
 async function initializeSession() {
-  console.log("🔄 Ініціалізація сесії...");
+  console.log("🔄 Initializing session...");
   
   try {
     // Initialize validation engine
@@ -118,22 +119,25 @@ async function initializeSession() {
     });
     console.log("✅ Validation engine initialized");
     
-    // Очистити старі сесії
-    await SessionManager.cleanupOldSessions();
+    // Check for existing session using new SessionService
+    const hasSession = await SessionService.hasCurrentSession();
     
-    // Спробувати завантажити сесію для поточного файлу
-    const savedSession = await SessionManager.loadSession();
-    
-    if (savedSession && savedSession.designState.isIterating) {
-      console.log("✅ Знайдена активна сесія для відновлення");
-      figma.ui.postMessage({ 
-        type: 'session-found', 
-        session: savedSession,
-        currentFileId: figma.root.id
-      });
+    if (hasSession) {
+      const currentSession = await SessionService.getCurrentSession();
+      if (currentSession) {
+        console.log("✅ Found active session for restoration");
+        
+        // Send session data to UI for modal display
+        const sessionForUI = SessionService.formatSessionForUI(currentSession);
+        figma.ui.postMessage({ 
+          type: 'session-found', 
+          session: sessionForUI,
+          currentFileId: figma.fileKey || figma.root.id
+        });
+      }
     }
     
-    // Завантажити API ключ
+    // Load API key
     const savedApiKey = await figma.clientStorage.getAsync('geminiApiKey');
     if (savedApiKey) {
       console.log("✅ API key found in storage");
@@ -143,9 +147,9 @@ async function initializeSession() {
       });
     }
     
-    // Завантажити збережені результати сканування
+    // Load saved scan results
     const savedScan: ScanSession | undefined = await figma.clientStorage.getAsync('design-system-scan');
-    const currentFileKey = figma.root.id;
+    const currentFileKey = figma.fileKey || figma.root.id;
     
     if (savedScan && savedScan.components && savedScan.components.length > 0) {
       if (savedScan.fileKey === currentFileKey) {
@@ -375,44 +379,54 @@ async function main() {
             }
             break;
 
-        // Session management handlers
+        // Session management handlers - Updated to use SessionService
         case 'restore-session':
             try {
                 const sessionData = msg.payload;
-                const success = await SessionManager.restoreSessionData(sessionData);
-                if (success) {
-                    figma.ui.postMessage({ 
-                        type: 'session-restored', 
-                        designState: sessionData.designState,
-                        scanData: sessionData.scanData 
-                    });
-                    figma.notify("Сесію відновлено!", { timeout: 2000 });
-                } else {
-                    throw new Error("Failed to restore session");
-                }
+                
+                // Restore session using SessionService
+                await SessionService.saveSession({
+                    designState: sessionData.designState,
+                    scanResults: sessionData.scanResults || [],
+                    currentTab: sessionData.currentTab || 'design-system',
+                    currentPlatform: sessionData.currentPlatform || 'mobile'
+                });
+                
+                figma.ui.postMessage({ 
+                    type: 'session-restored', 
+                    designState: sessionData.designState,
+                    scanData: sessionData.scanResults || []
+                });
+                figma.notify("Session restored!", { timeout: 2000 });
+                
             } catch (e: any) {
                 const errorMessage = e instanceof Error ? e.message : String(e);
-                figma.notify("Помилка відновлення сесії: " + errorMessage, { error: true });
+                figma.notify("Session restore error: " + errorMessage, { error: true });
             }
             break;
 
         case 'clear-current-session':
             try {
-                await SessionManager.clearSession();
+                await SessionService.clearCurrentSession();
                 figma.ui.postMessage({ type: 'session-cleared' });
-                figma.notify("Сесію очищено", { timeout: 1500 });
+                figma.notify("Session cleared", { timeout: 1500 });
             } catch (error) {
                 console.error("❌ Error clearing session:", error);
+                figma.notify("Failed to clear session", { error: true });
             }
             break;
 
         case 'get-all-sessions':
             try {
-                const allSessions = await SessionManager.getAllSessions();
+                const allSessions = await SessionService.getAllSessions();
+                const formattedSessions = allSessions.map(session => 
+                    SessionService.formatSessionForUI(session)
+                );
+                
                 figma.ui.postMessage({ 
                     type: 'all-sessions-loaded', 
-                    sessions: allSessions,
-                    currentFileId: figma.root.id 
+                    sessions: formattedSessions,
+                    currentFileId: figma.fileKey || figma.root.id
                 });
             } catch (error) {
                 console.error("❌ Error getting all sessions:", error);
@@ -422,16 +436,28 @@ async function main() {
 
         case 'delete-session':
             try {
-                await SessionManager.clearSession(msg.payload);
-                figma.ui.postMessage({ type: 'session-deleted', fileId: msg.payload });
+                const fileId = msg.payload;
+                await SessionService.deleteSession(fileId);
+                figma.ui.postMessage({ type: 'session-deleted', fileId: fileId });
+                figma.notify("Session deleted", { timeout: 1500 });
             } catch (error) {
                 console.error("❌ Error deleting session:", error);
+                figma.notify("Failed to delete session", { error: true });
             }
             break;
 
         case 'save-current-session':
             try {
-                await SessionManager.saveSession(msg.payload.designState, msg.payload.scanData);
+                const { designState, scanData, currentTab, currentPlatform } = msg.payload;
+                
+                await SessionService.saveSession({
+                    designState: designState,
+                    scanResults: scanData || [],
+                    currentTab: currentTab || 'design-system',
+                    currentPlatform: currentPlatform || 'mobile'
+                });
+                
+                console.log("✅ Session saved successfully");
             } catch (error) {
                 console.error("❌ Error saving session:", error);
             }
@@ -441,6 +467,15 @@ async function main() {
             try {
                 const components = await ComponentScanner.scanDesignSystem();
                 await ComponentScanner.saveLastScanResults(components);
+                
+                // Auto-save session with scan results
+                await SessionService.saveSession({
+                    scanResults: components,
+                    designState: {
+                        history: ['Design system scanned']
+                    }
+                });
+                
                 figma.ui.postMessage({ type: 'scan-results', components });
             } catch (e) {
                 figma.notify("Scanning error", { error: true });
@@ -529,7 +564,10 @@ async function main() {
                 await figma.clientStorage.setAsync('design-system-scan', null);
                 await figma.clientStorage.setAsync('last-scan-results', null);
                 await figma.clientStorage.setAsync('geminiApiKey', null);
-                await figma.clientStorage.setAsync(SessionManager['STORAGE_KEY'], null);
+                
+                // Clear all sessions using new SessionService
+                await SessionService.clearAllSessions();
+                
                 figma.notify("Storage cleared");
             } catch (error) {
                 console.error("Error clearing storage:", error);
