@@ -7,9 +7,9 @@ import { TabManager } from './src/ui/core/tab-manager.js';
 import { MessageHandler } from './src/ui/core/message-handler.js';
 
 // Import feature modules with correct paths
-import { DesignSystemUI } from './src/ui/core/features/design-system/design-system-ui.js';
-import { AIGeneratorUI } from './src/ui/core/features/ai-generator/ai-generator-ui.js';
-import { ApiSettingsUI } from './src/ui/core/features/api-settings/api-settings-ui.js';
+import { DesignSystemUI } from './src/ui/core/features/design-system-ui.js';
+import { AIGeneratorUI } from './src/ui/core/features/ai-generator-ui.js';
+import { APISettingsUI } from './src/ui/core/features/api-settings-ui.js';
 
 // Import main app (comment out temporarily if it has issues)
 // import { AIDesignerApp } from './src/ui/core/app.js';
@@ -21,7 +21,7 @@ window.TabManager = TabManager;
 window.MessageHandler = MessageHandler;
 window.DesignSystemUI = DesignSystemUI;
 window.AIGeneratorUI = AIGeneratorUI;
-window.ApiSettingsUI = ApiSettingsUI;
+window.APISettingsUI = APISettingsUI;
 
 // TODO: Add app back once import paths are fixed
 // window.AIDesignerApp = AIDesignerApp;
