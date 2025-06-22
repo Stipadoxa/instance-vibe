@@ -1,6 +1,7 @@
 // code.ts - COMPLETE MODULAR VERSION WITH VALIDATION ENGINE
 import { SessionManager, SessionState, ComponentInfo } from './src/core/session-manager';
 import { SessionService } from './src/core/session-service';
+import { GeminiService } from './src/core/gemini-service';
 import { ComponentScanner, ScanSession } from './src/core/component-scanner';
 import { FigmaRenderer } from './src/core/figma-renderer';
 import { GeminiAPI, GeminiRequest } from './src/ai/gemini-api';
@@ -342,40 +343,34 @@ async function main() {
             }
             break;
 
-        // Test API connection
+        // Test API connection - Updated to use GeminiService
+        case 'test-gemini-connection':
         case 'test-api-connection':
             try {
-                const geminiAPI = await GeminiAPI.createFromStorage();
-                if (!geminiAPI) {
-                    figma.ui.postMessage({ 
-                        type: 'api-test-result', 
-                        success: false, 
-                        error: "No API key found" 
-                    });
-                    return;
-                }
-
-                console.log("🧪 Testing API connection...");
-                const isConnected = await geminiAPI.testConnection();
+                console.log("🧪 Testing Gemini API connection...");
+                const result = await GeminiService.testConnection();
                 
                 figma.ui.postMessage({ 
-                    type: 'api-test-result', 
-                    success: isConnected,
-                    error: isConnected ? null : "Connection test failed"
+                    type: 'connection-test-result', 
+                    success: result.success,
+                    error: result.error || null,
+                    data: result.data || null
                 });
                 
-                if (isConnected) {
+                if (result.success) {
                     figma.notify("✅ API connection successful!", { timeout: 2000 });
                 } else {
-                    figma.notify("❌ API connection failed", { error: true });
+                    const errorMsg = GeminiService.formatErrorMessage(result.error || 'Connection failed');
+                    figma.notify(`❌ ${errorMsg}`, { error: true });
                 }
             } catch (e: any) {
                 const errorMessage = e instanceof Error ? e.message : String(e);
                 figma.ui.postMessage({ 
-                    type: 'api-test-result', 
+                    type: 'connection-test-result', 
                     success: false, 
                     error: errorMessage 
                 });
+                figma.notify("❌ Connection test failed", { error: true });
             }
             break;
 
@@ -519,11 +514,23 @@ async function main() {
         
         case 'save-api-key':
             try {
-                await figma.clientStorage.setAsync('geminiApiKey', msg.payload);
-                figma.ui.postMessage({ type: 'api-key-saved' });
+                const apiKey = msg.payload.apiKey || msg.payload;
+                const success = await GeminiService.saveApiKey(apiKey);
+                
+                if (success) {
+                    figma.ui.postMessage({ type: 'api-key-saved' });
+                    figma.notify("✅ API key saved successfully!", { timeout: 2000 });
+                } else {
+                    throw new Error("Failed to save API key");
+                }
             } catch (e) {
                 console.error("❌ Error saving API key:", e);
-                figma.notify("Error saving API key", { error: true });
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                figma.ui.postMessage({ 
+                    type: 'api-key-save-error', 
+                    error: errorMessage 
+                });
+                figma.notify("❌ Error saving API key", { error: true });
             }
             break;
 
@@ -538,6 +545,56 @@ async function main() {
             } catch (e) {
                 const errorMessage = e instanceof Error ? e.message : String(e);
                 figma.ui.postMessage({ type: 'api-key-error', payload: errorMessage });
+            }
+            break;
+
+        // Generate UI with Gemini - New handler using GeminiService
+        case 'generate-with-gemini':
+            try {
+                const { prompt, scanResults, platform, image } = msg.payload;
+                
+                console.log('🤖 Generating UI with Gemini...');
+                
+                const result = await GeminiService.generateUI({
+                    prompt: prompt,
+                    image: image || undefined
+                });
+                
+                if (result.success) {
+                    // Auto-save session with generation
+                    await SessionService.saveSession({
+                        scanResults: scanResults || [],
+                        currentPlatform: platform || 'mobile',
+                        designState: {
+                            history: ['AI generation completed'],
+                            current: result.data
+                        }
+                    });
+                    
+                    figma.ui.postMessage({ 
+                        type: 'gemini-response', 
+                        success: true,
+                        data: result.data 
+                    });
+                    figma.notify("✅ UI generated successfully!", { timeout: 2000 });
+                } else {
+                    const errorMsg = GeminiService.formatErrorMessage(result.error || 'Generation failed');
+                    figma.ui.postMessage({ 
+                        type: 'gemini-response', 
+                        success: false,
+                        error: errorMsg 
+                    });
+                    figma.notify(`❌ ${errorMsg}`, { error: true });
+                }
+            } catch (e: any) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                console.error("❌ Generation error:", errorMessage);
+                figma.ui.postMessage({ 
+                    type: 'gemini-response', 
+                    success: false,
+                    error: errorMessage 
+                });
+                figma.notify("❌ Generation failed", { error: true });
             }
             break;
         
@@ -560,17 +617,22 @@ async function main() {
             break;
 
         case 'clear-storage':
+        case 'clear-all-data':
             try {
                 await figma.clientStorage.setAsync('design-system-scan', null);
                 await figma.clientStorage.setAsync('last-scan-results', null);
-                await figma.clientStorage.setAsync('geminiApiKey', null);
                 
-                // Clear all sessions using new SessionService
+                // Clear API key using GeminiService
+                await GeminiService.clearApiKey();
+                
+                // Clear all sessions using SessionService
                 await SessionService.clearAllSessions();
                 
-                figma.notify("Storage cleared");
+                figma.notify("All data cleared successfully", { timeout: 2000 });
+                figma.ui.postMessage({ type: 'all-data-cleared' });
             } catch (error) {
                 console.error("Error clearing storage:", error);
+                figma.notify("Failed to clear some data", { error: true });
             }
             break;
 
