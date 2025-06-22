@@ -3,6 +3,7 @@ import { SessionManager, SessionState, ComponentInfo } from './src/core/session-
 import { SessionService } from './src/core/session-service';
 import { GeminiService } from './src/core/gemini-service';
 import { ComponentScanner, ScanSession } from './src/core/component-scanner';
+import { DesignSystemScannerService } from './src/core/design-system-scanner-service';
 import { FigmaRenderer } from './src/core/figma-renderer';
 import { GeminiAPI, GeminiRequest } from './src/ai/gemini-api';
 import { ValidationEngine, ValidationResult } from './src/core/validation-engine';
@@ -148,8 +149,8 @@ async function initializeSession() {
       });
     }
     
-    // Load saved scan results
-    const savedScan: ScanSession | undefined = await figma.clientStorage.getAsync('design-system-scan');
+    // Load saved scan results using DesignSystemScannerService
+    const savedScan = await DesignSystemScannerService.getScanSession();
     const currentFileKey = figma.fileKey || figma.root.id;
     
     if (savedScan && savedScan.components && savedScan.components.length > 0) {
@@ -162,8 +163,7 @@ async function initializeSession() {
         });
       } else {
         console.log("ℹ️ Scan from different file, clearing cache");
-        await figma.clientStorage.setAsync('design-system-scan', null);
-        await figma.clientStorage.setAsync('last-scan-results', null);
+        await DesignSystemScannerService.clearScanData();
       }
     } else {
       console.log("ℹ️ No saved design system found");
@@ -460,8 +460,18 @@ async function main() {
 
         case 'scan-design-system':
             try {
-                const components = await ComponentScanner.scanDesignSystem();
-                await ComponentScanner.saveLastScanResults(components);
+                console.log("🔍 Starting design system scan via backend service...");
+                
+                // Use new DesignSystemScannerService with progress reporting
+                const components = await DesignSystemScannerService.scanDesignSystem((progress) => {
+                    figma.ui.postMessage({ 
+                        type: 'scan-progress', 
+                        progress: progress 
+                    });
+                });
+                
+                // Save scan results using the service
+                await DesignSystemScannerService.saveScanResults(components);
                 
                 // Auto-save session with scan results
                 await SessionService.saveSession({
@@ -472,38 +482,50 @@ async function main() {
                 });
                 
                 figma.ui.postMessage({ type: 'scan-results', components });
-            } catch (e) {
+                figma.notify(`✅ Found ${components.length} components!`, { timeout: 2000 });
+                
+            } catch (e: any) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                console.error("❌ Design system scan error:", errorMessage);
                 figma.notify("Scanning error", { error: true });
+                figma.ui.postMessage({ type: 'scan-error', error: errorMessage });
             }
             break;
 
         case 'generate-llm-prompt':
-            const scanResultsForPrompt: ComponentInfo[] | undefined = await figma.clientStorage.getAsync('last-scan-results');
-            if (scanResultsForPrompt?.length) {
-                const llmPrompt = ComponentScanner.generateLLMPrompt(scanResultsForPrompt);
-                figma.ui.postMessage({ type: 'llm-prompt-generated', prompt: llmPrompt });
-            } else {
-                figma.notify("Scan components first", { error: true });
+            try {
+                const scanResultsForPrompt = await DesignSystemScannerService.getSavedScanResults();
+                if (scanResultsForPrompt?.length) {
+                    const llmPrompt = DesignSystemScannerService.generateLLMPrompt(scanResultsForPrompt);
+                    figma.ui.postMessage({ type: 'llm-prompt-generated', prompt: llmPrompt });
+                } else {
+                    figma.notify("Scan components first", { error: true });
+                }
+            } catch (e: any) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                console.error("❌ Error generating LLM prompt:", errorMessage);
+                figma.notify("Error generating prompt", { error: true });
             }
             break;
 
         case 'update-component-type':
             const { componentId, newType } = msg.payload;
             try {
-                const scanResults: ComponentInfo[] | undefined = await figma.clientStorage.getAsync('last-scan-results');
-                if (scanResults && Array.isArray(scanResults)) {
-                    let componentName = '';
-                    const updatedResults = scanResults.map(comp => {
-                        if (comp.id === componentId) {
-                            componentName = comp.name;
-                            return { ...comp, suggestedType: newType, confidence: 1.0 };
-                        }
-                        return comp;
+                const result = await DesignSystemScannerService.updateComponentType(componentId, newType);
+                if (result.success) {
+                    figma.ui.postMessage({ 
+                        type: 'component-type-updated', 
+                        componentId, 
+                        newType, 
+                        componentName: result.componentName 
                     });
-                    await ComponentScanner.saveLastScanResults(updatedResults);
-                    figma.ui.postMessage({ type: 'component-type-updated', componentId, newType, componentName });
+                    figma.notify(`Updated "${result.componentName}" to ${newType}`, { timeout: 2000 });
+                } else {
+                    figma.notify("Component not found for update", { error: true });
                 }
-            } catch (e) {
+            } catch (e: any) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                console.error("❌ Error updating component type:", errorMessage);
                 figma.notify("Error updating type", { error: true });
             }
             break;
@@ -600,7 +622,7 @@ async function main() {
         
         case 'get-saved-scan':
             try {
-                const savedScan: ScanSession | undefined = await figma.clientStorage.getAsync('design-system-scan');
+                const savedScan = await DesignSystemScannerService.getScanSession();
                 if (savedScan && savedScan.components && savedScan.fileKey === figma.root.id) {
                     figma.ui.postMessage({ 
                         type: 'saved-scan-loaded', 
@@ -619,8 +641,8 @@ async function main() {
         case 'clear-storage':
         case 'clear-all-data':
             try {
-                await figma.clientStorage.setAsync('design-system-scan', null);
-                await figma.clientStorage.setAsync('last-scan-results', null);
+                // Clear scan data using DesignSystemScannerService
+                await DesignSystemScannerService.clearScanData();
                 
                 // Clear API key using GeminiService
                 await GeminiService.clearApiKey();

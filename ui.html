@@ -1647,9 +1647,37 @@ function isValidImageSelected() {
 
         async function copyToClipboard(text) {
             try {
-                await navigator.clipboard.writeText(text);
+                // Try modern clipboard API first
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    return;
+                }
+                
+                // Fallback method for environments where clipboard API is unavailable
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    console.log('✅ Text copied using fallback method');
+                } catch (fallbackErr) {
+                    console.error('❌ Fallback copy failed:', fallbackErr);
+                    throw new Error('Copy failed - please manually copy the text');
+                } finally {
+                    document.body.removeChild(textArea);
+                }
             } catch (err) {
                 console.error('Failed to copy:', err);
+                // As a last resort, log the text so user can manually copy
+                console.log('📋 Copy failed - here is the text to copy manually:');
+                console.log(text);
+                throw err;
             }
         }
         
@@ -2592,13 +2620,47 @@ function isValidImageSelected() {
                     break;
 
                 // Design system handlers
-                case 'scan-results':
+                case 'scan-progress':
+                    // Handle scan progress updates
+                    const progress = msg.progress;
+                    const progressPercent = Math.round((progress.current / progress.total) * 100);
+                    
                     const scanBtn = document.getElementById('scanBtn');
-                    if(scanBtn) {
-                        scanBtn.disabled = false;
-                        scanBtn.textContent = '🔍 Scan Design System';
+                    if (scanBtn) {
+                        scanBtn.disabled = true;
+                        scanBtn.textContent = `⏳ ${progressPercent}% - ${progress.status}`;
                     }
+                    
+                    // Update scan status display directly (don't use showStatus to preserve DOM structure)
+                    const scanStatusElement = document.getElementById('scanStatusText');
+                    if (scanStatusElement) {
+                        scanStatusElement.textContent = `🔄 ${progress.status} (${progressPercent}%)`;
+                        scanStatusElement.className = 'scan-status-text info';
+                    }
+                    break;
+
+                case 'scan-results':
+                    const completedScanBtn = document.getElementById('scanBtn');
+                    if (completedScanBtn) {
+                        completedScanBtn.disabled = false;
+                        completedScanBtn.textContent = '🔍 Scan Design System';
+                    }
+                    
+                    // Let displaySavedScan handle the final status update
                     displaySavedScan(msg.components, Date.now());
+                    break;
+
+                case 'scan-error':
+                    const errorScanBtn = document.getElementById('scanBtn');
+                    if (errorScanBtn) {
+                        errorScanBtn.disabled = false;
+                        errorScanBtn.textContent = '🔍 Scan Design System';
+                    }
+                    
+                    const scanErrorElement = document.getElementById('scanStatusText');
+                    if (scanErrorElement) {
+                        showStatus(scanErrorElement.parentElement.id, `❌ Scan failed: ${msg.error}`, 'error');
+                    }
                     break;
 
                 case 'saved-scan-loaded':
