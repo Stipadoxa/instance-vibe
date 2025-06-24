@@ -1231,6 +1231,7 @@ var AIDesignerUI = (() => {
   var import_state_manager2 = __toESM(require_state_manager());
   var DesignSystemUI = class {
     constructor() {
+      console.log("\u{1F680} NEW DesignSystemUI constructor called - Export button version!");
       this.componentTypes = {
         "Navigation": ["appbar", "navbar", "tab", "tabs", "breadcrumb", "pagination", "navigation", "sidebar", "bottom-navigation", "menu"],
         "Input": ["button", "input", "textarea", "select", "checkbox", "radio", "switch", "slider", "searchbar", "chip"],
@@ -1245,6 +1246,7 @@ var AIDesignerUI = (() => {
       this.elements = {
         scanBtn: null,
         rescanBtn: null,
+        exportRawBtn: null,
         scanStatusContainer: null,
         scanStatusText: null,
         componentsSection: null,
@@ -1270,6 +1272,7 @@ var AIDesignerUI = (() => {
         this.setupElements();
       }
       this.registerMessageHandlers();
+      this.addRawExportButton();
     }
     /**
      * Setup DOM elements and event listeners
@@ -1278,6 +1281,7 @@ var AIDesignerUI = (() => {
       this.elements = {
         scanBtn: document.getElementById("scanBtn"),
         rescanBtn: document.getElementById("rescanBtn"),
+        exportRawBtn: document.getElementById("exportRawBtn"),
         scanStatusContainer: document.getElementById("scanStatusContainer"),
         scanStatusText: document.getElementById("scanStatusText"),
         componentsSection: document.getElementById("componentsSection"),
@@ -1302,6 +1306,9 @@ var AIDesignerUI = (() => {
       }
       if (this.elements.rescanBtn) {
         this.elements.rescanBtn.addEventListener("click", () => this.rescanDesignSystem());
+      }
+      if (this.elements.exportRawBtn) {
+        this.elements.exportRawBtn.addEventListener("click", () => this.exportRawScanData());
       }
       if (this.elements.searchInput) {
         this.elements.searchInput.addEventListener("input", (e) => {
@@ -1392,11 +1399,15 @@ var AIDesignerUI = (() => {
           statusText.textContent = `\u2705 ${this.scanResults.length} components loaded (scanned ${timeAgo})`;
         }
         if (rescanBtn) rescanBtn.style.display = "inline-block";
+        if (this.elements.exportRawBtn) {
+          this.elements.exportRawBtn.style.display = "inline-block";
+        }
         this.displayComponents();
         this.enableGeneratorTab();
       } else {
         if (statusText) statusText.textContent = "No design system scanned yet";
         if (rescanBtn) rescanBtn.style.display = "none";
+        if (this.elements.exportRawBtn) this.elements.exportRawBtn.style.display = "none";
       }
     }
     /**
@@ -1670,6 +1681,70 @@ var AIDesignerUI = (() => {
         }
       });
       this.renderComponentList();
+    }
+    /**
+     * Add raw export button to the UI
+     */
+    addRawExportButton() {
+      const scanBtn = this.elements.scanBtn;
+      if (!scanBtn) return;
+      if (!this.elements.exportRawBtn) {
+        const exportBtn = document.createElement("button");
+        exportBtn.id = "exportRawBtn";
+        exportBtn.className = "btn btn-secondary";
+        exportBtn.innerHTML = "\u{1F4E5} Export Raw Data";
+        exportBtn.style.display = "none";
+        exportBtn.style.marginLeft = "8px";
+        exportBtn.title = "Export raw scan results as JSON";
+        exportBtn.setAttribute("aria-label", "Export raw scan data as JSON file");
+        scanBtn.parentNode.insertBefore(exportBtn, scanBtn.nextSibling);
+        this.elements.exportRawBtn = exportBtn;
+        exportBtn.addEventListener("click", () => this.exportRawScanData());
+      }
+    }
+    /**
+     * Export raw scan data as JSON file
+     */
+    exportRawScanData() {
+      if (!this.scanResults || this.scanResults.length === 0) {
+        this.showScanStatus("\u274C No scan data available to export", "error");
+        return;
+      }
+      try {
+        const exportData = {
+          metadata: {
+            exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            componentCount: this.scanResults.length,
+            exportVersion: "1.0",
+            source: "Figma Design System Scanner"
+          },
+          components: this.scanResults
+        };
+        const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, -5);
+        const filename = `design-system-raw-data-${timestamp}.json`;
+        this.downloadJsonFile(exportData, filename);
+        this.showScanStatus("\u2705 Raw data exported successfully", "success");
+        console.log(`\u{1F4E5} Exported ${this.scanResults.length} components to ${filename}`);
+      } catch (error) {
+        console.error("Export failed:", error);
+        this.showScanStatus("\u274C Export failed. Please try again.", "error");
+      }
+    }
+    /**
+     * Download data as JSON file
+     */
+    downloadJsonFile(data, filename) {
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     }
     /**
      * Refresh the component display

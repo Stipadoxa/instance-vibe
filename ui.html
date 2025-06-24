@@ -1829,6 +1829,77 @@ function isValidImageSelected() {
             scanDesignSystem();
         }
 
+        function createExportButton() {
+            const scanBtn = document.getElementById('scanBtn');
+            if (!scanBtn) return;
+
+            // Create export button if it doesn't exist
+            if (!document.getElementById('exportRawBtn')) {
+                const exportBtn = document.createElement('button');
+                exportBtn.id = 'exportRawBtn';
+                exportBtn.className = 'btn btn-secondary';
+                exportBtn.innerHTML = '📤 Export Raw Data';
+                exportBtn.style.display = 'none';
+                exportBtn.style.marginLeft = '8px';
+                exportBtn.title = 'Export raw scan results as JSON';
+                exportBtn.onclick = exportRawScanData;
+                
+                // Insert after scan button
+                scanBtn.parentNode.insertBefore(exportBtn, scanBtn.nextSibling);
+            }
+        }
+
+        function exportRawScanData() {
+            if (!scanResults || scanResults.length === 0) {
+                showStatusMessage('❌ No scan data available to export', 'error');
+                return;
+            }
+
+            try {
+                // Prepare export data with metadata
+                const exportData = {
+                    metadata: {
+                        exportedAt: new Date().toISOString(),
+                        componentCount: scanResults.length,
+                        exportVersion: '1.0',
+                        source: 'Figma Design System Scanner'
+                    },
+                    components: scanResults
+                };
+
+                // Generate filename with timestamp
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                const filename = `design-system-raw-data-${timestamp}.json`;
+
+                // Download the JSON file
+                downloadJsonFile(exportData, filename);
+
+                showStatusMessage('✅ Raw data exported successfully', 'success');
+                console.log(`📤 Exported ${scanResults.length} components to ${filename}`);
+            } catch (error) {
+                console.error('Export failed:', error);
+                showStatusMessage('❌ Export failed. Please try again.', 'error');
+            }
+        }
+
+        function downloadJsonFile(data, filename) {
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up the URL object
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        }
+
         function displaySavedScan(components, scanTime) {
             scanResults = components || [];
             const statusContainer = document.getElementById('scanStatusContainer');
@@ -1842,11 +1913,19 @@ function isValidImageSelected() {
                     statusText.textContent = `✅ ${scanResults.length} components loaded (scanned ${timeAgo})`;
                 }
                 if (rescanBtn) rescanBtn.style.display = 'inline-block';
+                
+                // Show export button when results are available
+                createExportButton();
+                const exportBtn = document.getElementById('exportRawBtn');
+                if (exportBtn) exportBtn.style.display = 'inline-block';
+                
                 displayComponents();
                 enableGeneratorTab();
             } else {
                 if (statusText) statusText.textContent = 'No design system scanned yet';
                 if (rescanBtn) rescanBtn.style.display = 'none';
+                const exportBtn = document.getElementById('exportRawBtn');
+                if (exportBtn) exportBtn.style.display = 'none';
             }
         }
 
@@ -2874,5 +2953,6 @@ startFresh();
             parent.postMessage({ pluginMessage: { type: 'get-api-key' } }, '*');
         });
     </script>
+    <script src="ui-bundle.js"></script>
 </body>
 </html>
