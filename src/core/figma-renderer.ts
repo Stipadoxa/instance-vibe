@@ -2,6 +2,7 @@
 // UI generation and rendering engine for AIDesigner
 
 import { ComponentScanner } from './component-scanner';
+import { ComponentInfo, TextHierarchy } from './session-manager';
 
 export interface RenderOptions {
   parentNode?: FrameNode | PageNode;
@@ -363,36 +364,57 @@ export class FigmaRenderer {
   }
 
   /**
-   * Apply text properties to component instances
+   * Apply text properties to component instances using enhanced scan data
    */
   static async applyTextProperties(instance: InstanceNode, properties: any): Promise<void> {
     if (!properties) return;
     
     console.log("🔍 Applying text properties:", properties);
     
+    // Get all text nodes in the instance
     const allTextNodes = instance.findAll(n => n.type === 'TEXT') as TextNode[];
     console.log("🔍 Available text nodes in component:", 
       allTextNodes.map(textNode => ({ 
         name: textNode.name, 
+        id: textNode.id,
+        visible: textNode.visible,
         chars: textNode.characters || '[empty]'
       }))
     );
+
+    // Get the component's textHierarchy data from scan results
+    const componentTextHierarchy = await this.getComponentTextHierarchy(instance);
+    console.log("🔍 Text hierarchy from scan data:", componentTextHierarchy);
     
-    const textMappings: {[key: string]: string[]} = {
-      'content': ['headline', 'title', 'text', 'label', 'primary'],
-      'headline': ['headline', 'title', 'text', 'label', 'primary'],
-      'text': ['headline', 'title', 'text', 'label', 'primary'],
-      'supporting-text': ['supporting', 'subtitle', 'description', 'secondary', 'body'],
-      'supporting': ['supporting', 'subtitle', 'description', 'secondary', 'body'],
+    // Define semantic classification mappings
+    const semanticMappings: {[key: string]: string[]} = {
+      'primary-text': ['primary'],
+      'secondary-text': ['secondary'], 
+      'tertiary-text': ['tertiary'],
+      'headline': ['primary', 'secondary'],
+      'title': ['primary', 'secondary'],
+      'content': ['primary', 'secondary'],
+      'text': ['primary', 'secondary'],
+      'supporting-text': ['secondary', 'tertiary'],
+      'supporting': ['secondary', 'tertiary'],
+      'subtitle': ['secondary', 'tertiary'],
+      'trailing-text': ['tertiary', 'secondary'],
+      'trailing': ['tertiary', 'secondary'],
+      'caption': ['tertiary'],
+      'overline': ['tertiary']
+    };
+
+    // Define legacy text mappings for backward compatibility
+    const legacyMappings: {[key: string]: string[]} = {
+      'content': ['headline', 'title', 'text', 'label'],
+      'headline': ['headline', 'title', 'text', 'label'],
+      'text': ['headline', 'title', 'text', 'label'],
+      'supporting-text': ['supporting', 'subtitle', 'description', 'body'],
+      'supporting': ['supporting', 'subtitle', 'description', 'body'],
       'trailing-text': ['trailing', 'value', 'action', 'status', 'end'],
       'trailing': ['trailing', 'value', 'action', 'status', 'end'],
-      'label-text': ['label', 'headline', 'title', 'text'],
-      'value': ['value', 'trailing', 'status'],
       'title': ['title', 'headline', 'text'],
-      'subtitle': ['subtitle', 'supporting', 'description'],
-      'Headline': ['headline', 'title', 'text', 'label'],
-      'Supporting': ['supporting', 'subtitle', 'description'],
-      'Trailing': ['trailing', 'value', 'action']
+      'subtitle': ['subtitle', 'supporting', 'description']
     };
     
     for (const [propKey, propValue] of Object.entries(properties)) {
@@ -401,45 +423,139 @@ export class FigmaRenderer {
       
       console.log(`🔧 Trying to set ${propKey} = "${propValue}"`);
       
-      let possibleNames = textMappings[propKey] || [propKey.toLowerCase()];
-      
       let textNode: TextNode | null = null;
+      let matchMethod = 'none';
       
-      for (const targetName of possibleNames) {
-        textNode = allTextNodes.find(
-          n => n.name.toLowerCase().includes(targetName.toLowerCase())
-        ) || null;
+      // Method 1: Try exact node name match from scan data
+      if (componentTextHierarchy) {
+        const hierarchyEntry = componentTextHierarchy.find(entry => 
+          entry.nodeName.toLowerCase() === propKey.toLowerCase() ||
+          entry.nodeName.toLowerCase().replace(/\s+/g, '-') === propKey.toLowerCase()
+        );
         
-        if (textNode) {
-          console.log(`✅ Found text node "${textNode.name}" for property "${propKey}"`);
-          break;
+        if (hierarchyEntry) {
+          textNode = allTextNodes.find(n => n.id === hierarchyEntry.nodeId) || null;
+          if (textNode) {
+            matchMethod = 'exact-name';
+            console.log(`✅ Found text node by exact name match: "${textNode.name}" (${hierarchyEntry.classification})`);
+          }
         }
       }
       
+      // Method 2: Try semantic classification match
+      if (!textNode && componentTextHierarchy && semanticMappings[propKey.toLowerCase()]) {
+        const targetClassifications = semanticMappings[propKey.toLowerCase()];
+        
+        for (const classification of targetClassifications) {
+          const hierarchyEntry = componentTextHierarchy.find(entry => 
+            entry.classification === classification
+          );
+          
+          if (hierarchyEntry) {
+            textNode = allTextNodes.find(n => n.id === hierarchyEntry.nodeId) || null;
+            if (textNode) {
+              matchMethod = 'semantic-classification';
+              console.log(`✅ Found text node by semantic classification: "${textNode.name}" (${classification})`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // Method 3: Try partial node name match from scan data
+      if (!textNode && componentTextHierarchy) {
+        const hierarchyEntry = componentTextHierarchy.find(entry => 
+          entry.nodeName.toLowerCase().includes(propKey.toLowerCase()) ||
+          propKey.toLowerCase().includes(entry.nodeName.toLowerCase())
+        );
+        
+        if (hierarchyEntry) {
+          textNode = allTextNodes.find(n => n.id === hierarchyEntry.nodeId) || null;
+          if (textNode) {
+            matchMethod = 'partial-name';
+            console.log(`✅ Found text node by partial name match: "${textNode.name}"`);
+          }
+        }
+      }
+      
+      // Method 4: Fallback to legacy name-based matching
       if (!textNode) {
-        if (propKey.toLowerCase().includes('headline') || propKey.toLowerCase().includes('text')) {
-          textNode = allTextNodes[0] || null;
-          console.log(`🔄 Using first text node as fallback for "${propKey}"`);
-        } else if (propKey.toLowerCase().includes('trailing')) {
-          textNode = allTextNodes[allTextNodes.length - 1] || null;
-          console.log(`🔄 Using last text node as fallback for trailing "${propKey}"`);
-        } else if (propKey.toLowerCase().includes('supporting')) {
-          textNode = allTextNodes[1] || allTextNodes[0] || null;
-          console.log(`🔄 Using second text node as fallback for supporting "${propKey}"`);
+        const possibleNames = legacyMappings[propKey.toLowerCase()] || [propKey.toLowerCase()];
+        
+        for (const targetName of possibleNames) {
+          textNode = allTextNodes.find(
+            n => n.name.toLowerCase().includes(targetName.toLowerCase())
+          ) || null;
+          
+          if (textNode) {
+            matchMethod = 'legacy-mapping';
+            console.log(`✅ Found text node by legacy mapping: "${textNode.name}"`);
+            break;
+          }
         }
       }
       
-      if (textNode && typeof textNode.fontName !== 'symbol') {
+      // Method 5: Position-based fallback
+      if (!textNode) {
+        if (propKey.toLowerCase().includes('headline') || propKey.toLowerCase().includes('title') || propKey.toLowerCase().includes('primary')) {
+          textNode = allTextNodes[0] || null;
+          matchMethod = 'position-first';
+          console.log(`🔄 Using first text node as fallback for "${propKey}"`);
+        } else if (propKey.toLowerCase().includes('trailing') || propKey.toLowerCase().includes('tertiary')) {
+          textNode = allTextNodes[allTextNodes.length - 1] || null;
+          matchMethod = 'position-last';
+          console.log(`🔄 Using last text node as fallback for "${propKey}"`);
+        } else if (propKey.toLowerCase().includes('supporting') || propKey.toLowerCase().includes('secondary')) {
+          textNode = allTextNodes[1] || allTextNodes[0] || null;
+          matchMethod = 'position-second';
+          console.log(`🔄 Using second text node as fallback for "${propKey}"`);
+        }
+      }
+      
+      // Apply the text and activate hidden nodes if needed
+      if (textNode) {
         try {
-          await figma.loadFontAsync(textNode.fontName as FontName);
-          textNode.characters = propValue;
-          console.log(`✅ Successfully set "${textNode.name}" to "${propValue}"`);
+          // Activate hidden text node if needed
+          if (!textNode.visible) {
+            textNode.visible = true;
+            console.log(`👁️ Activated hidden text node: "${textNode.name}"`);
+          }
+          
+          // Load font and set text
+          if (typeof textNode.fontName !== 'symbol') {
+            await figma.loadFontAsync(textNode.fontName as FontName);
+            textNode.characters = propValue;
+            console.log(`✅ Successfully set "${textNode.name}" to "${propValue}" (method: ${matchMethod})`);
+          }
         } catch (fontError) {
           console.error(`❌ Font loading failed for "${textNode.name}":`, fontError);
         }
       } else {
         console.warn(`❌ No text node found for property "${propKey}" with value "${propValue}"`);
       }
+    }
+  }
+
+  /**
+   * Get text hierarchy data for a component instance from scan results
+   */
+  static async getComponentTextHierarchy(instance: InstanceNode): Promise<TextHierarchy[] | null> {
+    try {
+      // Get the main component to find its scan data
+      const mainComponent = await instance.getMainComponentAsync();
+      if (!mainComponent) return null;
+      
+      // Get scan results from storage
+      const scanResults: ComponentInfo[] | undefined = await figma.clientStorage.getAsync('last-scan-results');
+      if (!scanResults || !Array.isArray(scanResults)) return null;
+      
+      // Find the component in scan results
+      const componentInfo = scanResults.find(comp => comp.id === mainComponent.id);
+      return componentInfo?.textHierarchy || null;
+      
+    } catch (error) {
+      console.warn("Could not get text hierarchy data:", error);
+      return null;
     }
   }
 

@@ -487,9 +487,11 @@ async function main() {
                     
                     if (comp.textHierarchy?.length) {
                         console.log("  📝 Text Hierarchy:", comp.textHierarchy);
+                        console.log("  📝 EXACT NODE NAMES TO USE IN JSON:");
                         comp.textHierarchy.forEach(text => {
                             console.log(`    • ${text.classification.toUpperCase()}: "${text.nodeName}" (${text.fontSize}px, weight: ${text.fontWeight}, visible: ${text.visible})`);
-                            if (text.characters) console.log(`      Content: "${text.characters}"`);
+                            console.log(`      JSON property: "${text.nodeName}": "Your text here"`);
+                            if (text.characters) console.log(`      Current content: "${text.characters}"`);
                         });
                     }
                     
