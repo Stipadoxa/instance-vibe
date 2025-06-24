@@ -1,6 +1,37 @@
 // session-manager.ts
 // Session state management for AIDesigner
 
+export interface TextHierarchy {
+  nodeName: string;
+  nodeId: string;
+  fontSize: number;
+  fontWeight: string | number;
+  classification: 'primary' | 'secondary' | 'tertiary';
+  visible: boolean;
+  characters?: string;
+}
+
+export interface ComponentInstance {
+  nodeName: string;
+  nodeId: string;
+  componentId?: string;
+  visible: boolean;
+}
+
+export interface VectorNode {
+  nodeName: string;
+  nodeId: string;
+  visible: boolean;
+}
+
+export interface ImageNode {
+  nodeName: string;
+  nodeId: string;
+  nodeType: 'RECTANGLE' | 'ELLIPSE';
+  visible: boolean;
+  hasImageFill: boolean;
+}
+
 export interface ComponentInfo {
   id: string;
   name: string;
@@ -15,6 +46,10 @@ export interface ComponentInfo {
     pageId: string;
     isCurrentPage: boolean;
   };
+  textHierarchy?: TextHierarchy[];
+  componentInstances?: ComponentInstance[];
+  vectorNodes?: VectorNode[];
+  imageNodes?: ImageNode[];
 }
 
 export interface SessionState {

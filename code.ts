@@ -481,6 +481,47 @@ async function main() {
                     }
                 });
                 
+                // Debug: Log enhanced structure for ALL components
+                components.forEach((comp, index) => {
+                    console.log(`🔍 ENHANCED STRUCTURE DEBUG ${index + 1}/${components.length}: ${comp.name}`);
+                    
+                    if (comp.textHierarchy?.length) {
+                        console.log("  📝 Text Hierarchy:", comp.textHierarchy);
+                        comp.textHierarchy.forEach(text => {
+                            console.log(`    • ${text.classification.toUpperCase()}: "${text.nodeName}" (${text.fontSize}px, weight: ${text.fontWeight}, visible: ${text.visible})`);
+                            if (text.characters) console.log(`      Content: "${text.characters}"`);
+                        });
+                    }
+                    
+                    if (comp.componentInstances?.length) {
+                        console.log("  🧩 Component Instances:", comp.componentInstances);
+                        comp.componentInstances.forEach(inst => {
+                            console.log(`    • "${inst.nodeName}" (ID: ${inst.nodeId}, visible: ${inst.visible})`);
+                        });
+                    }
+                    
+                    if (comp.vectorNodes?.length) {
+                        console.log("  🎨 Vector Nodes:", comp.vectorNodes);
+                        comp.vectorNodes.forEach(vec => {
+                            console.log(`    • "${vec.nodeName}" (visible: ${vec.visible})`);
+                        });
+                    }
+                    
+                    if (comp.imageNodes?.length) {
+                        console.log("  🖼️ Image Nodes:", comp.imageNodes);
+                        comp.imageNodes.forEach(img => {
+                            console.log(`    • "${img.nodeName}" (${img.nodeType}, hasImage: ${img.hasImageFill}, visible: ${img.visible})`);
+                        });
+                    }
+                    
+                    if (!comp.textHierarchy?.length && !comp.componentInstances?.length && 
+                        !comp.vectorNodes?.length && !comp.imageNodes?.length) {
+                        console.log("  📋 No enhanced structure data found");
+                    }
+                    
+                    console.log(""); // Empty line for readability
+                });
+                
                 figma.ui.postMessage({ type: 'scan-results', components });
                 figma.notify(`✅ Found ${components.length} components!`, { timeout: 2000 });
                 

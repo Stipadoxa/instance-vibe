@@ -1,7 +1,7 @@
 // component-scanner.ts
 // Design system component scanning and analysis for AIDesigner
 
-import { ComponentInfo } from './session-manager';
+import { ComponentInfo, TextHierarchy, ComponentInstance, VectorNode, ImageNode } from './session-manager';
 
 export interface ScanSession {
   components: ComponentInfo[];
@@ -40,7 +40,7 @@ export class ComponentScanner {
           for (const node of allNodes) {
             try {
               if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
-                const componentInfo = this.analyzeComponent(node as ComponentNode | ComponentSetNode);
+                const componentInfo = await this.analyzeComponent(node as ComponentNode | ComponentSetNode);
                 if (componentInfo) {
                   componentInfo.pageInfo = {
                     pageName: page.name,
@@ -70,14 +70,18 @@ export class ComponentScanner {
   /**
    * Analyzes a single component to extract metadata
    */
-  static analyzeComponent(comp: ComponentNode | ComponentSetNode): ComponentInfo {
+  static async analyzeComponent(comp: ComponentNode | ComponentSetNode): Promise<ComponentInfo> {
       const name = comp.name;
       const suggestedType = this.guessComponentType(name.toLowerCase());
       const confidence = this.calculateConfidence(name.toLowerCase(), suggestedType);
       const textLayers = this.findTextLayers(comp);
+      const textHierarchy = this.analyzeTextHierarchy(comp);
+      const componentInstances = await this.findComponentInstances(comp);
+      const vectorNodes = this.findVectorNodes(comp);
+      const imageNodes = this.findImageNodes(comp);
       
       let variants: string[] = [];
-      let variantDetails: { [key: string]: string[] } = {};
+      const variantDetails: { [key: string]: string[] } = {};
       
       if (comp.type === 'COMPONENT_SET') {
           const variantProps = comp.variantGroupProperties;
@@ -103,6 +107,10 @@ export class ComponentScanner {
           variants: variants.length > 0 ? variants : undefined,
           variantDetails: Object.keys(variantDetails).length > 0 ? variantDetails : undefined,
           textLayers: textLayers.length > 0 ? textLayers : undefined,
+          textHierarchy: textHierarchy.length > 0 ? textHierarchy : undefined,
+          componentInstances: componentInstances.length > 0 ? componentInstances : undefined,
+          vectorNodes: vectorNodes.length > 0 ? vectorNodes : undefined,
+          imageNodes: imageNodes.length > 0 ? imageNodes : undefined,
           isFromLibrary: false
       };
   }
@@ -184,7 +192,7 @@ export class ComponentScanner {
       }
       
       for (const type in patterns) {
-          if (patterns.hasOwnProperty(type) && !priorityPatterns.includes(type)) {
+          if (Object.prototype.hasOwnProperty.call(patterns, type) && !priorityPatterns.includes(type)) {
               if (patterns[type].test(name)) return type;
           }
       }
@@ -234,6 +242,190 @@ export class ComponentScanner {
   }
 
   /**
+   * Analyzes text nodes by fontSize/fontWeight and classifies by visual prominence
+   */
+  static analyzeTextHierarchy(comp: ComponentNode | ComponentSetNode): TextHierarchy[] {
+    const textHierarchy: TextHierarchy[] = [];
+    try {
+      const nodeToAnalyze = comp.type === 'COMPONENT_SET' ? comp.defaultVariant : comp;
+      if (nodeToAnalyze && 'findAll' in nodeToAnalyze) {
+        const textNodes = (nodeToAnalyze as ComponentNode).findAll((node) => node.type === 'TEXT');
+        
+        // Collect font info for classification
+        const fontSizes: number[] = [];
+        const textNodeData: Array<{node: TextNode, fontSize: number, fontWeight: string | number}> = [];
+        
+        textNodes.forEach(node => {
+          if (node.type === 'TEXT') {
+            const textNode = node as TextNode;
+            try {
+              const fontSize = typeof textNode.fontSize === 'number' ? textNode.fontSize : 14;
+              const fontWeight = textNode.fontWeight || 'normal';
+              fontSizes.push(fontSize);
+              textNodeData.push({node: textNode, fontSize, fontWeight});
+            } catch (e) {
+              console.warn(`Could not read font properties for text node "${textNode.name}"`);
+            }
+          }
+        });
+        
+        // Sort font sizes to determine hierarchy thresholds
+        const uniqueSizes = [...new Set(fontSizes)].sort((a, b) => b - a);
+        
+        textNodeData.forEach(({node, fontSize, fontWeight}) => {
+          let classification: 'primary' | 'secondary' | 'tertiary' = 'tertiary';
+          
+          if (uniqueSizes.length >= 3) {
+            if (fontSize >= uniqueSizes[0]) classification = 'primary';
+            else if (fontSize >= uniqueSizes[1]) classification = 'secondary';
+            else classification = 'tertiary';
+          } else if (uniqueSizes.length === 2) {
+            classification = fontSize >= uniqueSizes[0] ? 'primary' : 'secondary';
+          } else {
+            // Single font size or unable to determine - classify by font weight
+            const weight = String(fontWeight).toLowerCase();
+            if (weight.includes('bold') || weight.includes('700') || weight.includes('800') || weight.includes('900')) {
+              classification = 'primary';
+            } else if (weight.includes('medium') || weight.includes('500') || weight.includes('600')) {
+              classification = 'secondary';
+            } else {
+              classification = 'tertiary';
+            }
+          }
+          
+          let characters: string | undefined;
+          try {
+            characters = node.characters || '[empty]';
+          } catch (e) {
+            characters = undefined;
+          }
+          
+          textHierarchy.push({
+            nodeName: node.name,
+            nodeId: node.id,
+            fontSize,
+            fontWeight,
+            classification,
+            visible: node.visible,
+            characters
+          });
+        });
+      }
+    } catch (e) {
+      console.error(`Error analyzing text hierarchy in "${comp.name}":`, e);
+    }
+    return textHierarchy;
+  }
+
+  /**
+   * Finds all nested COMPONENT/INSTANCE nodes (often icons)
+   */
+  static async findComponentInstances(comp: ComponentNode | ComponentSetNode): Promise<ComponentInstance[]> {
+    const componentInstances: ComponentInstance[] = [];
+    try {
+      const nodeToAnalyze = comp.type === 'COMPONENT_SET' ? comp.defaultVariant : comp;
+      if (nodeToAnalyze && 'findAll' in nodeToAnalyze) {
+        const instanceNodes = (nodeToAnalyze as ComponentNode).findAll((node) => 
+          node.type === 'COMPONENT' || node.type === 'INSTANCE'
+        );
+        
+        for (const node of instanceNodes) {
+          if (node.type === 'COMPONENT' || node.type === 'INSTANCE') {
+            const instance: ComponentInstance = {
+              nodeName: node.name,
+              nodeId: node.id,
+              visible: node.visible
+            };
+            
+            if (node.type === 'INSTANCE') {
+              try {
+                const mainComponent = await (node as InstanceNode).getMainComponentAsync();
+                instance.componentId = mainComponent?.id;
+              } catch (e) {
+                console.warn(`Could not get main component ID for instance "${node.name}"`);
+              }
+            }
+            
+            componentInstances.push(instance);
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`Error finding component instances in "${comp.name}":`, e);
+    }
+    return componentInstances;
+  }
+
+  /**
+   * Finds all VECTOR nodes (direct SVG icons)
+   */
+  static findVectorNodes(comp: ComponentNode | ComponentSetNode): VectorNode[] {
+    const vectorNodes: VectorNode[] = [];
+    try {
+      const nodeToAnalyze = comp.type === 'COMPONENT_SET' ? comp.defaultVariant : comp;
+      if (nodeToAnalyze && 'findAll' in nodeToAnalyze) {
+        const vectors = (nodeToAnalyze as ComponentNode).findAll((node) => node.type === 'VECTOR');
+        
+        vectors.forEach(node => {
+          if (node.type === 'VECTOR') {
+            vectorNodes.push({
+              nodeName: node.name,
+              nodeId: node.id,
+              visible: node.visible
+            });
+          }
+        });
+      }
+    } catch (e) {
+      console.error(`Error finding vector nodes in "${comp.name}":`, e);
+    }
+    return vectorNodes;
+  }
+
+  /**
+   * Finds all nodes that can accept image fills (RECTANGLE, ELLIPSE with image fills)
+   */
+  static findImageNodes(comp: ComponentNode | ComponentSetNode): ImageNode[] {
+    const imageNodes: ImageNode[] = [];
+    try {
+      const nodeToAnalyze = comp.type === 'COMPONENT_SET' ? comp.defaultVariant : comp;
+      if (nodeToAnalyze && 'findAll' in nodeToAnalyze) {
+        const shapeNodes = (nodeToAnalyze as ComponentNode).findAll((node) => 
+          node.type === 'RECTANGLE' || node.type === 'ELLIPSE'
+        );
+        
+        shapeNodes.forEach(node => {
+          if (node.type === 'RECTANGLE' || node.type === 'ELLIPSE') {
+            let hasImageFill = false;
+            
+            try {
+              const fills = (node as RectangleNode | EllipseNode).fills;
+              if (Array.isArray(fills)) {
+                hasImageFill = fills.some(fill => 
+                  typeof fill === 'object' && fill !== null && fill.type === 'IMAGE'
+                );
+              }
+            } catch (e) {
+              console.warn(`Could not check fills for node "${node.name}"`);
+            }
+            
+            imageNodes.push({
+              nodeName: node.name,
+              nodeId: node.id,
+              nodeType: node.type,
+              visible: node.visible,
+              hasImageFill
+            });
+          }
+        });
+      }
+    } catch (e) {
+      console.error(`Error finding image nodes in "${comp.name}":`, e);
+    }
+    return imageNodes;
+  }
+
+  /**
    * Generate LLM prompt based on scanned components
    */
   static generateLLMPrompt(components: ComponentInfo[]): string {
@@ -254,6 +446,25 @@ export class ComponentScanner {
           prompt += `- Component ID: "${bestComponent.id}"\n`;
           prompt += `- Component Name: "${bestComponent.name}"\n`;
           if (bestComponent.textLayers?.length) prompt += `- Text Layers: ${bestComponent.textLayers.map(l => `"${l}"`).join(', ')}\n`;
+          
+          if (bestComponent.textHierarchy?.length) {
+            prompt += `- Text Hierarchy:\n`;
+            bestComponent.textHierarchy.forEach(text => {
+              prompt += `  - ${text.classification.toUpperCase()}: "${text.nodeName}" (${text.fontSize}px, ${text.fontWeight}${text.visible ? '' : ', hidden'})\n`;
+            });
+          }
+          
+          if (bestComponent.componentInstances?.length) {
+            prompt += `- Component Instances: ${bestComponent.componentInstances.map(c => `"${c.nodeName}"${c.visible ? '' : ' (hidden)'}`).join(', ')}\n`;
+          }
+          
+          if (bestComponent.vectorNodes?.length) {
+            prompt += `- Vector Icons: ${bestComponent.vectorNodes.map(v => `"${v.nodeName}"${v.visible ? '' : ' (hidden)'}`).join(', ')}\n`;
+          }
+          
+          if (bestComponent.imageNodes?.length) {
+            prompt += `- Image Containers: ${bestComponent.imageNodes.map(i => `"${i.nodeName}" (${i.nodeType}${i.hasImageFill ? ', has image' : ''}${i.visible ? '' : ', hidden'})`).join(', ')}\n`;
+          }
           
           if (bestComponent.variantDetails && Object.keys(bestComponent.variantDetails).length > 0) {
               prompt += `\n  - 🎯 VARIANTS AVAILABLE:\n`;
