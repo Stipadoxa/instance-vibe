@@ -769,6 +769,7 @@
         <div class="section">
             <h3>Scan Components</h3>
             <button class="btn" onclick="scanDesignSystem()" id="scanBtn">🔍 Scan Design System</button>
+            
         </div>
 
         <div class="section" id="componentsSection" style="display: none;">
@@ -1848,6 +1849,7 @@ function isValidImageSelected() {
                 scanBtn.parentNode.insertBefore(exportBtn, scanBtn.nextSibling);
             }
         }
+
 
         function exportRawScanData() {
             if (!scanResults || scanResults.length === 0) {

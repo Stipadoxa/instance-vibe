@@ -712,6 +712,7 @@ async function main() {
   console.log("✅ Plugin fully initialized with complete modular architecture");
 }
 
+
 main().catch(err => {
     console.error("❌ Unhandled error:", err);
     figma.closePlugin("A critical error occurred.");

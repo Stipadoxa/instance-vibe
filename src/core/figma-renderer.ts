@@ -2,7 +2,7 @@
 // UI generation and rendering engine for AIDesigner
 
 import { ComponentScanner } from './component-scanner';
-import { ComponentInfo, TextHierarchy } from './session-manager';
+import { ComponentInfo, TextHierarchy, ComponentInstance, VectorNode, ImageNode } from './session-manager';
 
 export interface RenderOptions {
   parentNode?: FrameNode | PageNode;
@@ -172,6 +172,9 @@ export class FigmaRenderer {
         
         // Apply text properties to component
         await this.applyTextProperties(instance, sanitizedProps);
+        
+        // Apply media properties to component
+        await this.applyMediaProperties(instance, sanitizedProps);
       }
     }
     
@@ -557,6 +560,382 @@ export class FigmaRenderer {
       console.warn("Could not get text hierarchy data:", error);
       return null;
     }
+  }
+
+  /**
+   * Apply media properties to component instances using enhanced scan data validation
+   */
+  static async applyMediaProperties(instance: InstanceNode, properties: any): Promise<void> {
+    if (!properties) return;
+    
+    console.log("🖼️ Validating media properties:", properties);
+    
+    // Get the component's media structure from scan data
+    const componentMediaData = await this.getComponentMediaData(instance);
+    console.log("🖼️ Media data from scan results:", componentMediaData);
+    
+    // Define media property patterns to look for
+    const mediaPropertyPatterns = [
+      'icon', 'image', 'avatar', 'photo', 'logo', 'media',
+      'leading-icon', 'trailing-icon', 'start-icon', 'end-icon',
+      'profile-image', 'user-avatar', 'cover-image', 'thumbnail'
+    ];
+    
+    // Extract media-related properties
+    const mediaProperties: {[key: string]: any} = {};
+    Object.entries(properties).forEach(([key, value]) => {
+      const keyLower = key.toLowerCase();
+      if (mediaPropertyPatterns.some(pattern => keyLower.includes(pattern))) {
+        mediaProperties[key] = value;
+      }
+    });
+    
+    if (Object.keys(mediaProperties).length === 0) {
+      console.log("🖼️ No media properties found to validate");
+      return;
+    }
+    
+    console.log("🖼️ Found media properties to validate:", Object.keys(mediaProperties));
+    
+    // Validate each media property against scan data
+    for (const [propKey, propValue] of Object.entries(mediaProperties)) {
+      if (!propValue || typeof propValue !== 'string' || !propValue.trim()) continue;
+      
+      console.log(`🔍 Validating media property: ${propKey} = "${propValue}"`);
+      
+      let validationResult = this.validateMediaProperty(propKey, propValue, componentMediaData);
+      
+      if (validationResult.isValid) {
+        console.log(`✅ ${propKey} → would set to "${propValue}" (${validationResult.targetType}: "${validationResult.targetName}")`);
+      } else {
+        console.warn(`❌ Invalid media property: "${propKey}" = "${propValue}" - ${validationResult.reason}`);
+        
+        // Suggest alternatives if available
+        if (validationResult.suggestions?.length) {
+          console.log(`💡 Available media slots: ${validationResult.suggestions.join(', ')}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Get media structure data for a component instance from scan results
+   */
+  static async getComponentMediaData(instance: InstanceNode): Promise<{
+    componentInstances: ComponentInstance[],
+    vectorNodes: VectorNode[],
+    imageNodes: ImageNode[]
+  } | null> {
+    try {
+      // Get the main component to find its scan data
+      const mainComponent = await instance.getMainComponentAsync();
+      if (!mainComponent) {
+        console.warn("Could not get main component from instance");
+        return null;
+      }
+      
+      console.log("🔍 Looking for media data for main component ID:", mainComponent.id);
+      
+      // Get scan results from storage
+      const scanResults: ComponentInfo[] | undefined = await figma.clientStorage.getAsync('last-scan-results');
+      if (!scanResults || !Array.isArray(scanResults)) {
+        console.warn("No scan results found in storage");
+        return null;
+      }
+      
+      console.log("🔍 Available component IDs in scan data:", scanResults.map(c => c.id));
+      
+      // Find the component in scan results
+      const componentInfo = scanResults.find(comp => comp.id === mainComponent.id);
+      if (!componentInfo) {
+        console.warn(`Component ${mainComponent.id} not found in scan results`);
+        return null;
+      }
+      
+      console.log("🔍 Found component info:", componentInfo.name);
+      console.log("🔍 Component instances:", componentInfo.componentInstances);
+      console.log("🔍 Vector nodes:", componentInfo.vectorNodes);
+      console.log("🔍 Image nodes:", componentInfo.imageNodes);
+      
+      return {
+        componentInstances: componentInfo.componentInstances || [],
+        vectorNodes: componentInfo.vectorNodes || [],
+        imageNodes: componentInfo.imageNodes || []
+      };
+      
+    } catch (error) {
+      console.warn("Could not get media data:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Validate a media property against available media slots in scan data
+   */
+  static validateMediaProperty(propKey: string, propValue: string, mediaData: {
+    componentInstances: ComponentInstance[],
+    vectorNodes: VectorNode[],
+    imageNodes: ImageNode[]
+  } | null): {
+    isValid: boolean,
+    targetType?: 'component-instance' | 'vector-node' | 'image-node',
+    targetName?: string,
+    reason?: string,
+    suggestions?: string[]
+  } {
+    if (!mediaData) {
+      return {
+        isValid: false,
+        reason: "No media scan data available"
+      };
+    }
+    
+    const { componentInstances, vectorNodes, imageNodes } = mediaData;
+    
+    // Create a list of all available media slots
+    const allMediaSlots = [
+      ...componentInstances.map(c => ({ name: c.nodeName, type: 'component-instance' as const })),
+      ...vectorNodes.map(v => ({ name: v.nodeName, type: 'vector-node' as const })),
+      ...imageNodes.map(i => ({ name: i.nodeName, type: 'image-node' as const }))
+    ];
+    
+    if (allMediaSlots.length === 0) {
+      return {
+        isValid: false,
+        reason: "No media slots found in component"
+      };
+    }
+    
+    // Try exact name match
+    const exactMatch = allMediaSlots.find(slot => 
+      slot.name.toLowerCase() === propKey.toLowerCase() ||
+      slot.name.toLowerCase().replace(/\s+/g, '-') === propKey.toLowerCase()
+    );
+    
+    if (exactMatch) {
+      return {
+        isValid: true,
+        targetType: exactMatch.type,
+        targetName: exactMatch.name
+      };
+    }
+    
+    // Try partial name match
+    const partialMatch = allMediaSlots.find(slot =>
+      slot.name.toLowerCase().includes(propKey.toLowerCase()) ||
+      propKey.toLowerCase().includes(slot.name.toLowerCase())
+    );
+    
+    if (partialMatch) {
+      return {
+        isValid: true,
+        targetType: partialMatch.type,
+        targetName: partialMatch.name
+      };
+    }
+    
+    // Try semantic matching based on property type
+    const semanticMatch = this.findSemanticMediaMatch(propKey, allMediaSlots);
+    if (semanticMatch) {
+      return {
+        isValid: true,
+        targetType: semanticMatch.type,
+        targetName: semanticMatch.name
+      };
+    }
+    
+    // Return suggestions for invalid properties
+    return {
+      isValid: false,
+      reason: `No matching media slot found for "${propKey}"`,
+      suggestions: allMediaSlots.map(slot => slot.name)
+    };
+  }
+
+  /**
+   * Find semantic matches for media properties using intelligent classification
+   */
+  static findSemanticMediaMatch(propKey: string, mediaSlots: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>): {name: string, type: 'component-instance' | 'vector-node' | 'image-node'} | null {
+    const keyLower = propKey.toLowerCase();
+    
+    // Enhanced semantic classification with multiple strategies
+    const classifications = this.classifyMediaSlots(mediaSlots);
+    
+    // Strategy 1: Direct semantic category matching
+    if (keyLower.includes('avatar') || keyLower.includes('profile') || keyLower.includes('user')) {
+      return classifications.avatars[0] || classifications.images[0] || classifications.circles[0] || null;
+    }
+    
+    if (keyLower.includes('icon') && !keyLower.includes('leading') && !keyLower.includes('trailing')) {
+      return classifications.icons[0] || classifications.vectors[0] || classifications.smallImages[0] || null;
+    }
+    
+    if (keyLower.includes('image') || keyLower.includes('photo') || keyLower.includes('picture')) {
+      return classifications.images[0] || classifications.rectangularImages[0] || classifications.avatars[0] || null;
+    }
+    
+    if (keyLower.includes('logo') || keyLower.includes('brand')) {
+      return classifications.logos[0] || classifications.vectors[0] || classifications.images[0] || null;
+    }
+    
+    if (keyLower.includes('badge') || keyLower.includes('indicator') || keyLower.includes('status')) {
+      return classifications.badges[0] || classifications.smallImages[0] || classifications.vectors[0] || null;
+    }
+    
+    // Strategy 2: Position-based matching
+    if (keyLower.includes('leading') || keyLower.includes('start') || keyLower.includes('left')) {
+      const positionMatch = this.findByPosition(mediaSlots, 'leading');
+      if (positionMatch) return positionMatch;
+      
+      // Fallback to any icon/vector for leading positions
+      return classifications.icons[0] || classifications.vectors[0] || null;
+    }
+    
+    if (keyLower.includes('trailing') || keyLower.includes('end') || keyLower.includes('right')) {
+      const positionMatch = this.findByPosition(mediaSlots, 'trailing');
+      if (positionMatch) return positionMatch;
+      
+      // Fallback to any icon/vector for trailing positions
+      return classifications.icons[0] || classifications.vectors[0] || null;
+    }
+    
+    // Strategy 3: Size-based matching
+    if (keyLower.includes('large') || keyLower.includes('big') || keyLower.includes('cover')) {
+      return classifications.largeImages[0] || classifications.images[0] || null;
+    }
+    
+    if (keyLower.includes('small') || keyLower.includes('mini') || keyLower.includes('thumb')) {
+      return classifications.smallImages[0] || classifications.icons[0] || classifications.vectors[0] || null;
+    }
+    
+    // Strategy 4: Fallback based on property type patterns
+    if (keyLower.includes('icon')) {
+      return classifications.vectors[0] || classifications.icons[0] || null;
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Classify media slots into semantic categories based on names and types
+   */
+  static classifyMediaSlots(mediaSlots: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>): {
+    avatars: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+    icons: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+    images: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+    vectors: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+    badges: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+    logos: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+    smallImages: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+    largeImages: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+    circles: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+    rectangularImages: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>
+  } {
+    const classifications = {
+      avatars: [] as Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+      icons: [] as Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+      images: [] as Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+      vectors: [] as Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+      badges: [] as Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+      logos: [] as Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+      smallImages: [] as Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+      largeImages: [] as Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+      circles: [] as Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>,
+      rectangularImages: [] as Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>
+    };
+    
+    mediaSlots.forEach(slot => {
+      const nameLower = slot.name.toLowerCase();
+      
+      // Avatar classification - look for people, faces, profiles
+      if (nameLower.includes('avatar') || 
+          nameLower.includes('profile') || 
+          nameLower.includes('user') ||
+          nameLower.includes('person') ||
+          nameLower.includes('selfie') ||
+          nameLower.includes('face') ||
+          nameLower.includes('man') ||
+          nameLower.includes('woman') ||
+          nameLower.includes('people') ||
+          (slot.type === 'image-node' && nameLower.includes('photo'))) {
+        classifications.avatars.push(slot);
+      }
+      
+      // Icon classification - small graphics, symbols
+      else if (nameLower.includes('icon') || 
+               nameLower.includes('symbol') ||
+               nameLower.includes('pictogram') ||
+               (slot.type === 'vector-node' && nameLower.length < 10)) {
+        classifications.icons.push(slot);
+      }
+      
+      // Badge classification - status indicators, notifications
+      else if (nameLower.includes('badge') ||
+               nameLower.includes('indicator') ||
+               nameLower.includes('status') ||
+               nameLower.includes('notification') ||
+               nameLower.includes('dot') ||
+               nameLower.includes('alert')) {
+        classifications.badges.push(slot);
+      }
+      
+      // Logo classification - brand elements
+      else if (nameLower.includes('logo') ||
+               nameLower.includes('brand') ||
+               nameLower.includes('company')) {
+        classifications.logos.push(slot);
+      }
+      
+      // Vector classification - all vector nodes
+      else if (slot.type === 'vector-node') {
+        classifications.vectors.push(slot);
+      }
+      
+      // Image classification - all image nodes and component instances with image-like names
+      else if (slot.type === 'image-node' || 
+               nameLower.includes('image') ||
+               nameLower.includes('picture') ||
+               nameLower.includes('photo')) {
+        classifications.images.push(slot);
+        
+        // Sub-classify by apparent size/shape
+        if (nameLower.includes('small') || nameLower.includes('mini') || nameLower.includes('thumb')) {
+          classifications.smallImages.push(slot);
+        } else if (nameLower.includes('large') || nameLower.includes('big') || nameLower.includes('cover')) {
+          classifications.largeImages.push(slot);
+        }
+        
+        // Shape classification
+        if (nameLower.includes('circle') || nameLower.includes('round')) {
+          classifications.circles.push(slot);
+        } else {
+          classifications.rectangularImages.push(slot);
+        }
+      }
+      
+      // Catch-all for component instances
+      else if (slot.type === 'component-instance') {
+        // If no specific category, put in general images category
+        classifications.images.push(slot);
+      }
+    });
+    
+    return classifications;
+  }
+  
+  /**
+   * Find media slots by position keywords
+   */
+  static findByPosition(mediaSlots: Array<{name: string, type: 'component-instance' | 'vector-node' | 'image-node'}>, position: 'leading' | 'trailing'): {name: string, type: 'component-instance' | 'vector-node' | 'image-node'} | null {
+    const positionKeywords = position === 'leading' 
+      ? ['leading', 'start', 'left', 'first', 'begin']
+      : ['trailing', 'end', 'right', 'last', 'final'];
+    
+    return mediaSlots.find(slot => 
+      positionKeywords.some(keyword => 
+        slot.name.toLowerCase().includes(keyword)
+      )
+    ) || null;
   }
 
   /**
