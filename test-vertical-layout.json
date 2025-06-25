@@ -1,0 +1,51 @@
+{
+  "layoutContainer": {
+    "name": "Vertical Layout Test",
+    "layoutMode": "VERTICAL",
+    "layoutWrap": "NO_WRAP",
+    "primaryAxisAlignItems": "CENTER",
+    "counterAxisAlignItems": "MIN",
+    "primaryAxisSizingMode": "FIXED",
+    "counterAxisSizingMode": "AUTO",
+    "itemSpacing": 20,
+    "minWidth": 300,
+    "maxWidth": 600,
+    "paddingTop": 20,
+    "paddingBottom": 20,
+    "paddingLeft": 20,
+    "paddingRight": 20
+  },
+  "items": [
+    {
+      "type": "native-text",
+      "text": "Header Text",
+      "properties": {
+        "layoutAlign": "STRETCH",
+        "layoutGrow": 0,
+        "layoutPositioning": "AUTO"
+      }
+    },
+    {
+      "type": "native-rectangle",
+      "width": 100,
+      "height": 80,
+      "fill": { "r": 1.0, "g": 0.5, "b": 0.2 },
+      "properties": {
+        "layoutAlign": "CENTER",
+        "layoutGrow": 1,
+        "layoutPositioning": "AUTO",
+        "minHeight": 60,
+        "maxHeight": 120
+      }
+    },
+    {
+      "type": "native-text",
+      "text": "Footer Text",
+      "properties": {
+        "layoutAlign": "MAX",
+        "layoutGrow": 0,
+        "layoutPositioning": "AUTO"
+      }
+    }
+  ]
+}

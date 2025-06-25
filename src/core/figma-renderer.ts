@@ -38,14 +38,61 @@ export class FigmaRenderer {
         currentFrame.paddingBottom = typeof containerData.paddingBottom === 'number' ? containerData.paddingBottom : 0;
         currentFrame.paddingLeft = typeof containerData.paddingLeft === 'number' ? containerData.paddingLeft : 0;
         currentFrame.paddingRight = typeof containerData.paddingRight === 'number' ? containerData.paddingRight : 0;
-        currentFrame.itemSpacing = typeof containerData.itemSpacing === 'number' ? containerData.itemSpacing : 0;
-        currentFrame.primaryAxisSizingMode = "AUTO";
+        
+        // Enhanced auto-layout properties
+        if (containerData.itemSpacing === 'AUTO') {
+          (currentFrame as any).itemSpacing = 'AUTO';
+        } else {
+          currentFrame.itemSpacing = typeof containerData.itemSpacing === 'number' ? containerData.itemSpacing : 0;
+        }
+        
+        // Layout wrap support
+        if (containerData.layoutWrap !== undefined) {
+          currentFrame.layoutWrap = containerData.layoutWrap;
+        }
+        
+        // Primary axis alignment
+        if (containerData.primaryAxisAlignItems) {
+          currentFrame.primaryAxisAlignItems = containerData.primaryAxisAlignItems;
+        }
+        
+        // Counter axis alignment
+        if (containerData.counterAxisAlignItems) {
+          currentFrame.counterAxisAlignItems = containerData.counterAxisAlignItems;
+        }
+        
+        // Sizing modes
+        if (containerData.primaryAxisSizingMode) {
+          currentFrame.primaryAxisSizingMode = containerData.primaryAxisSizingMode;
+        } else {
+          currentFrame.primaryAxisSizingMode = "AUTO";
+        }
+        
+        if (containerData.counterAxisSizingMode) {
+          currentFrame.counterAxisSizingMode = containerData.counterAxisSizingMode;
+        }
+      }
+      
+      // Size constraints
+      if (containerData.minWidth !== undefined) {
+        currentFrame.minWidth = containerData.minWidth;
+      }
+      if (containerData.maxWidth !== undefined) {
+        currentFrame.maxWidth = containerData.maxWidth;
+      }
+      if (containerData.minHeight !== undefined) {
+        currentFrame.minHeight = containerData.minHeight;
+      }
+      if (containerData.maxHeight !== undefined) {
+        currentFrame.maxHeight = containerData.maxHeight;
       }
       
       if (containerData.width) {
         currentFrame.resize(containerData.width, currentFrame.height);
-        currentFrame.counterAxisSizingMode = "FIXED";
-      } else {
+        if (!containerData.counterAxisSizingMode) {
+          currentFrame.counterAxisSizingMode = "FIXED";
+        }
+      } else if (!containerData.counterAxisSizingMode) {
         currentFrame.counterAxisSizingMode = "AUTO";
       }
     }
@@ -58,9 +105,8 @@ export class FigmaRenderer {
         const nestedFrame = figma.createFrame();
         currentFrame.appendChild(nestedFrame);
         
-        if (item.horizontalSizing === 'FILL') {
-          nestedFrame.layoutAlign = 'STRETCH';
-        }
+        // Apply child layout properties
+        this.applyChildLayoutProperties(nestedFrame, item);
         
         await this.generateUIFromData({ layoutContainer: item, items: item.items }, nestedFrame);
         
@@ -161,14 +207,8 @@ export class FigmaRenderer {
           }
         }
         
-        // Apply layout sizing
-        if (sanitizedProps?.horizontalSizing === 'FILL') {
-          if (currentFrame.layoutMode === 'VERTICAL') {
-            instance.layoutAlign = 'STRETCH';
-          } else if (currentFrame.layoutMode === 'HORIZONTAL') {
-            instance.layoutGrow = 1;
-          }
-        }
+        // Apply child layout properties
+        this.applyChildLayoutProperties(instance, sanitizedProps);
         
         // Apply text properties to component
         await this.applyTextProperties(instance, sanitizedProps);
@@ -296,9 +336,11 @@ export class FigmaRenderer {
       }
     }
     
-    // Sizing behavior
+    // Apply child layout properties
+    this.applyChildLayoutProperties(textNode, props);
+    
+    // Text auto-resize behavior
     if (props.horizontalSizing === 'FILL') {
-      textNode.layoutAlign = 'STRETCH';
       textNode.textAutoResize = 'HEIGHT';
     } else {
       textNode.textAutoResize = 'WIDTH_AND_HEIGHT';
@@ -1011,6 +1053,49 @@ export class FigmaRenderer {
     console.log(`   Variants:`, variants);
     
     return {cleanProperties, variants};
+  }
+
+  /**
+   * Apply child layout properties for auto-layout items
+   */
+  static applyChildLayoutProperties(node: SceneNode, properties: any): void {
+    if (!properties) return;
+    
+    // layoutAlign - how the child aligns within its parent
+    if (properties.layoutAlign) {
+      (node as any).layoutAlign = properties.layoutAlign;
+    } else if (properties.horizontalSizing === 'FILL') {
+      (node as any).layoutAlign = 'STRETCH';
+    }
+    
+    // layoutGrow - how much the child should grow to fill available space
+    if (properties.layoutGrow !== undefined) {
+      (node as any).layoutGrow = properties.layoutGrow;
+    } else if (properties.horizontalSizing === 'FILL') {
+      const parent = node.parent;
+      if (parent && 'layoutMode' in parent && parent.layoutMode === 'HORIZONTAL') {
+        (node as any).layoutGrow = 1;
+      }
+    }
+    
+    // layoutPositioning - absolute positioning within auto-layout
+    if (properties.layoutPositioning) {
+      (node as any).layoutPositioning = properties.layoutPositioning;
+    }
+    
+    // Size constraints for child elements
+    if (properties.minWidth !== undefined && 'minWidth' in node) {
+      (node as any).minWidth = properties.minWidth;
+    }
+    if (properties.maxWidth !== undefined && 'maxWidth' in node) {
+      (node as any).maxWidth = properties.maxWidth;
+    }
+    if (properties.minHeight !== undefined && 'minHeight' in node) {
+      (node as any).minHeight = properties.minHeight;
+    }
+    if (properties.maxHeight !== undefined && 'maxHeight' in node) {
+      (node as any).maxHeight = properties.maxHeight;
+    }
   }
 
   /**
